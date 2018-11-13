@@ -9,6 +9,7 @@ import {
   View,
   AsyncStorage,
   Dimensions,
+  StatusBar,
 } from 'react-native';
 
 import { MapView } from 'expo';
@@ -76,6 +77,10 @@ export default class MapNavigationScreen extends React.Component {
 
     return (
       <View style={styles.container}>
+        <StatusBar
+          backgroundColor="blue"
+          hidden = {true}
+        />
         <MapView
           style={styles.map}
           initialRegion={{
