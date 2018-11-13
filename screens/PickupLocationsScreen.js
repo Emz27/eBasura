@@ -1,9 +1,11 @@
 import React from 'react';
-import { TouchableWithoutFeedback, Text, View, AsyncStorage, FlatList, StyleSheet, Animated } from 'react-native'
+import { Button, TouchableWithoutFeedback, Text, View, AsyncStorage, FlatList, StyleSheet, Animated, Dimensions } from 'react-native'
 import { ExpoConfigView } from '@expo/samples';
 
 import * as firebase from 'firebase';
 import 'firebase/firestore';
+
+let { width: windowX } = Dimensions.get('window')
 
 export default class PickupLocationsScreen extends React.Component {
   constructor(props){
@@ -29,10 +31,8 @@ export default class PickupLocationsScreen extends React.Component {
   loadPickupLocations = async ()=>{
     var pickupLocations = JSON.parse(await AsyncStorage.getItem('eBasuraNavigationPickupLocations'))
     pickupLocations = pickupLocations.map((pickup)=>{
-      pickup.itemWidthMax = 100;
-      pickup.itemWidthMin = 50;
-      pickup.itemHeightMax = 80;
-      pickup.itemHeightMin = 50;
+      pickup.itemWidthMax = 0;
+      pickup.itemWidthMin = (-1)*windowX*.8;
 
       pickup.isLarge = false;
       pickup.itemWidth = new Animated.Value( pickup.itemWidthMin );
@@ -67,22 +67,7 @@ export default class PickupLocationsScreen extends React.Component {
                   console.log("preesss");
                   Animated.parallel(
                     [
-                      Animated.spring(
-                        item.itemWidth,
-                        {
-                          toValue: (item.isLarge)?item.itemWidthMin:item.itemWidthMax,
-                          friction: 3,
-                          tension: 40
-                        }
-                      ),
-                      Animated.spring(
-                        item.itemHeight,
-                        {
-                          toValue: (item.isLarge)?item.itemHeightMin:item.itemHeightMax,
-                          friction: 3,
-                          tension: 40
-                        }
-                      ),
+                      Animated.spring( item.itemWidth, {toValue: (item.isLarge)?item.itemWidthMin:item.itemWidthMax,}),
                     ],
                     {
                       useNativeDriver: true
@@ -91,27 +76,18 @@ export default class PickupLocationsScreen extends React.Component {
                   item.isLarge = !item.isLarge;
                 }
               }>
-              <Animated.View  
-                style={[{width: item.itemWidth, height: item.itemHeight }, styles.listItem ]
-                }
-                >
-                {
-                  <Text>{item.pickupid}</Text>
-                  /*<Text>{item.address}</Text>*/
-                  
-                }
+              <Animated.View style={[{transform:[{ translateX: item.itemWidth}]}, styles.listItem ]}>
+
+                  <View style={{flex:1}}><Text>{item.address}</Text></View>
+                  <View><Text>{item.pickupid}</Text></View>
+
               </Animated.View>
             </TouchableWithoutFeedback>
-              <View style={
-                {
-                  height:1000,
-                  width: 10,
-                  backgroundColor:"black",
-                  position:"absolute",
-                  top:0,
-
-                }
-              }></View>
+            <View style={{position:"absolute",right:0,zIndex:-1000, width:(-1)*windowX*.8,flex:1, flexDirection:"row-reverse"}}>
+              <View style={styles.itemButton}></View>
+              <View style={styles.itemButton}></View>
+              <View style={styles.itemButton}></View>
+            </View>
             </View>
             
         }
@@ -121,28 +97,41 @@ export default class PickupLocationsScreen extends React.Component {
   }
 }
 
+
 const styles = StyleSheet.create({
   container:{
     flex:1
   },
   list :{
     flex:1,
-    alignItems:"center",
-    padding: 10,
+    alignItems:"flex-start",
   },
   listItemContainer:{
     padding: 20,
     marginTop:5,
     backgroundColor: "#01ffbf",
-    borderRadius:5,
     marginHorizontal:"auto",
   },
   listItem:{
     backgroundColor: "#02ffe5",
     padding: 2,
-    borderRadius:5,
+    flexDirection:"row",
+
+    borderBottomEndRadius:5,
+    borderTopEndRadius:5,
     marginTop:5,
     elevation: 10,
-    overflow:"hidden"
+    width: windowX*.9,
+    overflow:"hidden",
+    position:"relative",
+  },
+  itemButton:{
+    width:15,
+    height:15,
+    marginVertical:"auto",
+    borderRadius: 15, 
+    elevation: 10,
+    marginRight: 20, 
+    backgroundColor:"#01ffbf"
   }
 });
