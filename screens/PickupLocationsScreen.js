@@ -7,6 +7,7 @@ import { ExpoConfigView } from '@expo/samples';
 import * as firebase from 'firebase';
 import 'firebase/firestore';
 
+import { MonoText } from '../components/StyledText';
 
 let { width: windowX } = Dimensions.get('window')
 
@@ -127,6 +128,7 @@ export default class PickupLocationsScreen extends React.Component {
 
     return (
       <View style={styles.container}>
+        <View style={styles.headerContainer}></View>
         <View style={styles.mapContainer}>
           <MapView
             style={styles.map}
@@ -164,11 +166,11 @@ export default class PickupLocationsScreen extends React.Component {
             renderItem={({item}) => {
               let statusColor = "white"
               switch(item.status){
-                case "skipped":{
+                case "missed":{
                   statusColor = "gray"
                   break;
                 }
-                case "pickedup":{
+                case "collected":{
                   statusColor = "green"
                   break;
                 }
@@ -184,8 +186,15 @@ export default class PickupLocationsScreen extends React.Component {
                     }}
                     background={TouchableNativeFeedback.SelectableBackground()}>
                   <View style={styles.itemContentContainer}>
-                    <Text>{item.pickupid}</Text>
-                    <Text>{}</Text>
+                    <MonoText>{item.pickupid}</MonoText>
+                    <MonoText style={{fontSize: 9}}>{item.address}</MonoText>
+                    <MonoText style={{fontSize: 10}}>{
+                      (()=>{
+                        if( item.status == "collected") return "Collection: "+item.datetime;
+                        else if( item.status == "missed" ) return "Missed Collection: "+item.datetime;
+                        else return "- - -";
+                      })()
+                    }</MonoText>
                   </View>
                 </TouchableNativeFeedback>
                 <Animated.View 
@@ -200,8 +209,8 @@ export default class PickupLocationsScreen extends React.Component {
                       },
                     ]}
                 >
-                  <View style={{overflow:"hidden",flex:1,flexDirection:"row",alignItems: "center", alignContent: "space-between", elevation:5, backgroundColor:"white", margin:5,paddingRight: windowX*.1,paddingLeft: windowX*.1, borderRadius: 10}}>
-                    <Text>{item.status}</Text>
+                  <View style={{overflow:"hidden",flex:1,flexDirection:"row",alignItems: "center", alignContent: "space-between", elevation:2, backgroundColor:"white", margin:5,paddingRight: windowX*.1,paddingLeft: windowX*.1, borderRadius: 10}}>
+                    <MonoText>{item.status}</MonoText>
                   </View>
                 </Animated.View>
                 <Animated.View 
@@ -216,7 +225,7 @@ export default class PickupLocationsScreen extends React.Component {
                     },
                   ]}
                 >
-                  <View style={{flex:1,flexDirection:"row",alignItems: "center", alignContent: "space-between", elevation:5, backgroundColor:"white", margin:5,paddingLeft: windowX*.1, borderRadius: 10}}>
+                  <View style={{flex:1,flexDirection:"row",alignItems: "center", alignContent: "space-between", elevation:2, backgroundColor:"white", margin:5,paddingLeft: windowX*.1, borderRadius: 10}}>
                   <TouchableOpacity
                     style={{
                         borderWidth:1,
@@ -227,7 +236,7 @@ export default class PickupLocationsScreen extends React.Component {
                         height:30,
                         backgroundColor:'#fff',
                         borderRadius:30,
-                        elevation:5,
+                        elevation:2,
                         marginLeft:5,
                       }}
                   >
@@ -247,7 +256,7 @@ export default class PickupLocationsScreen extends React.Component {
                         height:30,
                         backgroundColor:'#fff',
                         borderRadius:30,
-                        elevation:5,
+                        elevation:2,
                         marginHorizontal:5,
                       }}
                       onPress={()=>{
@@ -274,16 +283,29 @@ export default class PickupLocationsScreen extends React.Component {
 
 const styles = StyleSheet.create({
   container:{
-    flex:1
+    flex:1,
+    backgroundColor:"white",
+  },
+  headerContainer:{
+    height:50,
+    elevation: 3,
+    backgroundColor:"white",
+    //position:"absolute",
+    //top:20,
+    zIndex: 1000,
   },
   mapContainer:{
     flex:2,
+    zIndex:-1,
   },
   map:{
-    flex:1
+    flex:1,
+    zIndex:-1,
   },
   listContainer :{
     flex:3,
+    elevation:10,
+    backgroundColor:"white",
   },
   itemContainer :{
     height:80,
@@ -295,14 +317,9 @@ const styles = StyleSheet.create({
     borderRadius:5,
     marginHorizontal:10,
     alignItems: "center",
-  },
-  itemInfoContainer:{
-    position: "absolute",
-    width: "40%",
-    top:8,
-    bottom:8,
-    backgroundColor: "white",
-    elevation:5,
+    borderWidth:.7,
+    borderColor:"#aaa",
+    paddingHorizontal:windowX*.1,
   },
   itemInfoContainer:{
     position: "absolute",
@@ -310,7 +327,7 @@ const styles = StyleSheet.create({
     top:8,
     bottom:8,
     backgroundColor: "white",
-    elevation:5,
+    elevation:2,
   },
   itemLeftInfoContainer: {
     left: 0,
