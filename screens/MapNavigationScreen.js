@@ -38,6 +38,11 @@ export default class MapNavigationScreen extends React.Component {
       route: {legs:[]}
     };
 
+    this.coordinates = [];
+
+  }
+  onComponentDidMount(){
+    
   }
   loadData = async ()=>{
     let user = JSON.parse(await AsyncStorage.getItem('eBasuraNavigationUser'));
@@ -54,6 +59,19 @@ export default class MapNavigationScreen extends React.Component {
     let response = await fetch(`https://maps.googleapis.com/maps/api/directions/json?origin=${origin}&destination=${destination}&waypoints=optimize:true|${waypoints}&key=${DIRECTIONS_API_KEY}`);
     let responseJson = await response.json();
     
+    let route = responseJson.routes[0];
+
+    this.coordinates = [];
+    route.legs.forEach((leg)=>{
+      leg.steps.forEach((step)=>{
+        this.coordinates.push({latitude: step.start_location.lat, longitude: step.start_location.lng},{latitude: step.end_location.lat, longitude: step.end_location.lng})
+      })
+    })
+    console.log(JSON.stringify(this.coordinates)+"hello coordinates");
+    this.map.fitToCoordinates(this.coordinates, {
+      edgePadding: { top: 50, right: 50, bottom: 50, left: 50 },
+      animated: true,
+    });
     this.setState({
       user: user,
       truck: truck,
@@ -63,18 +81,7 @@ export default class MapNavigationScreen extends React.Component {
   }
   render() {
 
-    let coordinates = [];
     let strokeColors = [];
-    this.state.route.legs.forEach((leg)=>{
-      leg.steps.forEach((step)=>{
-
-        coordinates.push({latitude: step.start_location.lat, longitude: step.start_location.lng},{latitude: step.end_location.lat, longitude: step.end_location.lng})
-      
-      })
-      
-    })
-
-
     return (
       <View style={styles.container}>
         <StatusBar
@@ -83,15 +90,20 @@ export default class MapNavigationScreen extends React.Component {
         />
         <MapView
           style={styles.map}
+          ref={ref => { this.map = ref; }}
           initialRegion={{
             latitude: 14.61881,
             longitude: 121.057171,
             latitudeDelta: LATITUDE_DELTA,
             longitudeDelta: LONGITUDE_DELTA,
-        }}>
+          }}
+          onLayout={()=>{
+            
+          }}
+        >
             
             <MapView.Polyline 
-              coordinates={coordinates}
+              coordinates={this.coordinates}
               strokeColor="#000"
               strokeColors={strokeColors}
               strokeWidth={6}

@@ -1,6 +1,6 @@
 import React from 'react';
-import { DrawerLayoutAndroid, Button, TouchableWithoutFeedback, Text, View, AsyncStorage, FlatList, StyleSheet, Animated, Dimensions } from 'react-native'
-import { MapView } from 'expo'
+import { TouchableOpacity,TouchableNativeFeedback, Button, TouchableWithoutFeedback, Text, View, AsyncStorage, FlatList, StyleSheet, Animated, Dimensions } from 'react-native'
+import { MapView , Icon, } from 'expo'
 import { ExpoConfigView } from '@expo/samples';
 
 
@@ -24,7 +24,7 @@ export default class PickupLocationsScreen extends React.Component {
       user:{},
       pickuplocations:[],
     }
-    
+    this.coordinates = [];
   }
   static navigationOptions = {
     header: null,
@@ -34,20 +34,33 @@ export default class PickupLocationsScreen extends React.Component {
     this.props.navigation.navigate('AuthLoading');
   }
   componentDidMount(){
-
+    
   }
   loadPickupLocations = async ()=>{
     var pickupLocations = JSON.parse(await AsyncStorage.getItem('eBasuraNavigationPickupLocations'))
     pickupLocations = pickupLocations.map((pickup)=>{
-      pickup.itemWidthMax = 0;
-      pickup.itemWidthMin = (-1)*windowX*.8;
-
-      pickup.isLarge = false;
-      pickup.itemWidth = new Animated.Value( pickup.itemWidthMin );
-      pickup.itemHeight = new Animated.Value( pickup.itemHeightMin );
-
+      pickup.infoLeftOpenOffset = (-1)*windowX*.1;
+      pickup.infoRightOpenOffset = windowX*.1;
+      pickup.infoLeftCloseOffset = (-1)*windowX*.4;
+      pickup.infoRightCloseOffset = windowX*.4;
+      pickup.isOpen = false;
+      pickup.infoLeftCurrentOffset = new Animated.Value( pickup.infoLeftCloseOffset );
+      pickup.infoRightCurrentOffset = new Animated.Value( pickup.infoRightCloseOffset );
       return pickup;
     });
+    this.coordinates = [];
+    pickupLocations.forEach((pickup, index)=>{
+      this.coordinates.push({
+        latitude: pickup.location._lat,
+        longitude: pickup.location._long,
+      })
+    })
+    console.log(JSON.stringify(this.coordinates)+"hello coordinates");
+    this.map.fitToCoordinates(this.coordinates, {
+      edgePadding: { top: 50, right: 50, bottom: 50, left: 50 },
+      animated: true,
+    });
+    //this.map.fitToSuppliedMarkers(this.coordinates, true);
     this.setState({
       pickuplocations: pickupLocations
     })
@@ -60,31 +73,199 @@ export default class PickupLocationsScreen extends React.Component {
     })
     console.log('User Loaded');
   }
+  onItemPress = async (item)=>{
+
+    this.map.animateToNavigation({
+      latitude: item.location._lat,
+      longitude: item.location._long,
+    },0,0);
+    item.markerRef.showCallout();
+    const anims = [];
+    var addAnim = (pickupItem, type)=>{
+      anims.push(
+      Animated.spring(
+        pickupItem.infoLeftCurrentOffset,
+        {
+          toValue: (type!="open")?pickupItem.infoLeftCloseOffset: pickupItem.infoLeftOpenOffset,
+          friction: 3,
+          tension: 40,
+          useNativeDriver: true,}
+      ),
+      Animated.spring(
+        pickupItem.infoRightCurrentOffset,
+        {
+          toValue: (type!="open")?pickupItem.infoRightCloseOffset: pickupItem.infoRightOpenOffset,
+          friction: 3,
+          tension: 40,
+          useNativeDriver: true,
+        }
+      ));
+      if(type!="open")pickupItem.isOpen = false;
+      else pickupItem.isOpen = true;
+    };
+    
+    var openItems = this.state.pickuplocations.filter((i)=>{
+      return i.isOpen == true;
+    });
+    if(openItems.length){
+      openItems.forEach((i)=>{
+        if(i.key != item.key)addAnim(i,"close");
+      })
+    }
+    if(item.isOpen) addAnim(item,"close");
+    else addAnim(item,"open");
+
+    Animated.parallel( anims,{ useNativeDriver: true }).start();
+    
+  }
   render() {
     /* Go ahead and delete ExpoConfigView and replace it with your
      * content, we just wanted to give you a quick view of your config */
+
+    
+    
+
     return (
       <View style={styles.container}>
-
         <View style={styles.mapContainer}>
           <MapView
             style={styles.map}
+            ref={ref => { this.map = ref; }}
             initialRegion={{
               latitude: 14.61881,
               longitude: 121.057171,
               latitudeDelta: LATITUDE_DELTA,
               longitudeDelta: LONGITUDE_DELTA,
           }}>
-
+            {
+              this.state.pickuplocations.map((pickup,index)=>{
+                return(
+                  <MapView.Marker
+                    key={pickup.key}
+                    coordinate={{
+                      latitude: pickup.location._lat,
+                      longitude: pickup.location._long,
+                    }}
+                    ref={ref => { pickup.markerRef = ref; }}
+                    title={pickup.pickupid}
+                    onCalloutPress={()=>{
+                      this.props.navigation.navigate('PickupDetail',{pickup:pickup});
+                    }}
+                  >
+                  </MapView.Marker>
+                )
+              })
+            }
           </MapView>
         </View>
+        <View style={styles.listContainer}>
+          <FlatList
+            data={this.state.pickuplocations}
+            renderItem={({item}) => {
+              let statusColor = "white"
+              switch(item.status){
+                case "skipped":{
+                  statusColor = "gray"
+                  break;
+                }
+                case "pickedup":{
+                  statusColor = "green"
+                  break;
+                }
+                default:{
+                  break;
+                }
+              }
+              return (
+              <View style={styles.itemContainer}>
+                <TouchableNativeFeedback
+                    onPress={()=>{
+                      this.onItemPress(item);
+                    }}
+                    background={TouchableNativeFeedback.SelectableBackground()}>
+                  <View style={styles.itemContentContainer}>
+                    <Text>{item.pickupid}</Text>
+                    <Text>{}</Text>
+                  </View>
+                </TouchableNativeFeedback>
+                <Animated.View 
+                  style={[
+                      { 
+                        transform: [{ translateX: item.infoLeftCurrentOffset }] 
+                      },
+                      styles.itemInfoContainer,
+                      styles.itemLeftInfoContainer,
+                      {
+                        backgroundColor: statusColor
+                      },
+                    ]}
+                >
+                  <View style={{overflow:"hidden",flex:1,flexDirection:"row",alignItems: "center", alignContent: "space-between", elevation:5, backgroundColor:"white", margin:5,paddingRight: windowX*.1,paddingLeft: windowX*.1, borderRadius: 10}}>
+                    <Text>{item.status}</Text>
+                  </View>
+                </Animated.View>
+                <Animated.View 
+                  style={[
+                    { 
+                      transform: [{ translateX: item.infoRightCurrentOffset }] 
+                    },
+                    styles.itemInfoContainer,
+                    styles.itemRightInfoContainer,
+                    {
+                      backgroundColor: statusColor
+                    },
+                  ]}
+                >
+                  <View style={{flex:1,flexDirection:"row",alignItems: "center", alignContent: "space-between", elevation:5, backgroundColor:"white", margin:5,paddingLeft: windowX*.1, borderRadius: 10}}>
+                  <TouchableOpacity
+                    style={{
+                        borderWidth:1,
+                        borderColor:'rgba(0,0,0,0.2)',
+                        alignItems:'center',
+                        justifyContent:'center',
+                        width:30,
+                        height:30,
+                        backgroundColor:'#fff',
+                        borderRadius:30,
+                        elevation:5,
+                        marginLeft:5,
+                      }}
+                  >
+                    <Icon.AntDesign
+                        name="message1"
+                        size={17}
+                      />
+                  </TouchableOpacity>
 
-        <FlatList contentContainerStyle={styles.listContainer}
-          data={this.state.pickuplocations}
-          renderItem={({item}) => <View></View>
-          }
-        />
-
+                  <TouchableOpacity
+                    style={{
+                        borderWidth:1,
+                        borderColor:'rgba(0,0,0,0.2)',
+                        alignItems:'center',
+                        justifyContent:'center',
+                        width:30,
+                        height:30,
+                        backgroundColor:'#fff',
+                        borderRadius:30,
+                        elevation:5,
+                        marginHorizontal:5,
+                      }}
+                      onPress={()=>{
+                        this.props.navigation.navigate('PickupDetail',{pickup:item});
+                      }}
+                  >
+                    <Icon.MaterialCommunityIcons
+                        name="information-outline"
+                        size={17}
+                      />
+                  </TouchableOpacity>
+                  </View>
+                </Animated.View>
+              </View>)
+              }
+            }
+          />
+        </View>
       </View>
     );
   }
@@ -96,7 +277,7 @@ const styles = StyleSheet.create({
     flex:1
   },
   mapContainer:{
-    flex:1
+    flex:2,
   },
   map:{
     flex:1
@@ -104,17 +285,41 @@ const styles = StyleSheet.create({
   listContainer :{
     flex:3,
   },
-  listItem:{
-    backgroundColor: "#02ffe5",
-    padding: 2,
-    flexDirection:"row",
-
-    borderBottomEndRadius:5,
-    borderTopEndRadius:5,
-    marginTop:5,
-    elevation: 10,
-    width: windowX*.9,
-    overflow:"hidden",
-    position:"relative",
-  }
+  itemContainer :{
+    height:80,
+    marginTop: 5,
+  },
+  itemContentContainer: {
+    flex:1,
+    backgroundColor: "white",
+    borderRadius:5,
+    marginHorizontal:10,
+    alignItems: "center",
+  },
+  itemInfoContainer:{
+    position: "absolute",
+    width: "40%",
+    top:8,
+    bottom:8,
+    backgroundColor: "white",
+    elevation:5,
+  },
+  itemInfoContainer:{
+    position: "absolute",
+    width: "50%",
+    top:8,
+    bottom:8,
+    backgroundColor: "white",
+    elevation:5,
+  },
+  itemLeftInfoContainer: {
+    left: 0,
+    borderTopRightRadius:10,
+    borderBottomRightRadius:10,
+  },
+  itemRightInfoContainer: {
+    right: 0,
+    borderTopLeftRadius:10,
+    borderBottomLeftRadius:10,
+  },
 });

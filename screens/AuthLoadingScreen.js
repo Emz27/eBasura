@@ -33,8 +33,8 @@ export default class AuthLoadingScreen extends React.Component {
       this.truck = { key: trucks.docs[0].id ,...trucks.docs[0].data()}
 
       await AsyncStorage.setItem('eBasuraNavigationTruck',JSON.stringify(this.truck));
-      let pickupLocationDocs = await firebase.firestore().collection('pickup locations').get();
-      //let pickupLocationDocs = await firebase.firestore().collection('trucks').doc(trucks.docs[0].id).collection('pickup locations').get();
+      //let pickupLocationDocs = await firebase.firestore().collection('pickup locations').get();
+      let pickupLocationDocs = await firebase.firestore().collection('trucks').doc(trucks.docs[0].id).collection('pickup locations').get();
 
       
       if(pickupLocationDocs.docs.length){
