@@ -12,7 +12,7 @@ import {
   StatusBar,
 } from 'react-native';
 
-import { MapView } from 'expo';
+import { Constants, Location, Permissions, MapView } from 'expo';
 
 
 import { MonoText } from '../components/StyledText';
@@ -40,6 +40,17 @@ export default class MapNavigationScreen extends React.Component {
 
     this.coordinates = [];
 
+  }
+  async componentWillMount() {
+    if (Platform.OS === 'android' && !Constants.isDevice) {
+
+    } 
+    else {
+      let { status } = await Permissions.askAsync(Permissions.LOCATION);
+      if (status !== 'granted') {
+
+      }
+    }
   }
   onComponentDidMount(){
     
@@ -97,6 +108,8 @@ export default class MapNavigationScreen extends React.Component {
             latitudeDelta: LATITUDE_DELTA,
             longitudeDelta: LONGITUDE_DELTA,
           }}
+          showsUserLocation={true}
+          showsMyLocationButton={true}
           onLayout={()=>{
             
           }}
