@@ -24,6 +24,7 @@ export default class PickupLocationsScreen extends React.Component {
     this.state = {
       user:{},
       pickuplocations:[],
+      type:"current",
     }
     this.coordinates = [];
   }
@@ -128,7 +129,50 @@ export default class PickupLocationsScreen extends React.Component {
 
     return (
       <View style={styles.container}>
-        <View style={styles.headerContainer}></View>
+        <View style={styles.headerContainer}>
+        <TouchableOpacity
+          style={{
+              borderWidth:1,
+              borderColor:'rgba(0,0,0,0.2)',
+              alignItems:'center',
+              justifyContent:'center',
+              width:100,
+              height:30,
+              backgroundColor:'#fff',
+              borderRadius:30,
+              elevation:2,
+              marginHorizontal:20,
+              marginVertical:"auto",
+              borderColor:((this.state.type == "current")?"blue":"black")
+            }}
+          onPress={()=>{
+            this.setState({type:"current"});
+          }}
+        >
+          <MonoText style={[{color:(this.state.type == "current")?"blue":"black"}]}>Current</MonoText>
+        </TouchableOpacity>
+        <TouchableOpacity
+          style={[{
+              borderWidth:1,
+              borderColor:'rgba(0,0,0,0.2)',
+              alignItems:'center',
+              justifyContent:'center',
+              width:100,
+              height:30,
+              backgroundColor:'#fff',
+              borderRadius:30,
+              elevation:2,
+              marginHorizontal:20,
+              marginVertical:"auto",
+              borderColor:((this.state.type == "history")?"blue":"black")
+            }]}
+          onPress={()=>{
+            this.setState({type:"history"});
+          }}
+        >
+            <MonoText style={[{color:(this.state.type == "history")?"blue":"black"}]}>History</MonoText>
+        </TouchableOpacity>
+        </View>
         <View style={styles.mapContainer}>
           <MapView
             style={styles.map}
@@ -289,6 +333,9 @@ const styles = StyleSheet.create({
   headerContainer:{
     height:50,
     elevation: 3,
+    flexDirection:"row",
+    justifyContent:"center",
+    alignItems:"center",
     backgroundColor:"white",
     //position:"absolute",
     //top:20,
