@@ -1,3 +1,4 @@
+import { parse, stringify} from 'flatted/esm'
 import React from 'react';
 import {
   Image,
@@ -16,13 +17,16 @@ import { Constants, Location, Permissions, MapView } from 'expo';
 
 
 import { MonoText } from '../components/StyledText';
+import moment from 'moment';
+import * as firebase from 'firebase';
+import 'firebase/firestore';
 
 let { width, height } = Dimensions.get('window')
 const ASPECT_RATIO = width / height
 const LATITUDE_DELTA = 0.008
 const LONGITUDE_DELTA = LATITUDE_DELTA * ASPECT_RATIO
 
-const DIRECTIONS_API_KEY = 'AIzaSyAKLNDKXRY5niSySOE8TIdz2yFgBmHyhjo';
+
 
 export default class MapNavigationScreen extends React.Component {
   static navigationOptions = {
@@ -32,13 +36,13 @@ export default class MapNavigationScreen extends React.Component {
     super(props);
     this.loadData();
     this.state = {
-      user: {},
-      truck: {},
-      pickuplocations: [],
+      collectionsHistory:[],
+      collectionsToday: [],
       route: {legs:[]}
     };
 
     this.coordinates = [];
+    this.paths = [];
 
   }
   async componentWillMount() {
@@ -56,38 +60,23 @@ export default class MapNavigationScreen extends React.Component {
     
   }
   loadData = async ()=>{
-    let user = JSON.parse(await AsyncStorage.getItem('eBasuraNavigationUser'));
-    console.log('user loaded');
-    let truck = JSON.parse(await AsyncStorage.getItem('eBasuraNavigationTruck'));
-    console.log('truck loaded');
-    let pickupLocations = JSON.parse(await AsyncStorage.getItem('eBasuraNavigationPickupLocations'));
-    console.log('pickuplocations loaded');
-    let origin = pickupLocations.filter( item => item.type=='origin').map( item => item.location._lat+','+item.location._long ).join();
-    console.log(`origin : ${origin}`);
-    let destination = origin;
-    let waypoints = pickupLocations.filter( item => item.type=='waypoint').map( item => item.location._lat+','+item.location._long ).join('|');
-    console.log(`waypoints : ${waypoints}`);
-    let response = await fetch(`https://maps.googleapis.com/maps/api/directions/json?origin=${origin}&destination=${destination}&waypoints=optimize:true|${waypoints}&key=${DIRECTIONS_API_KEY}`);
-    let responseJson = await response.json();
-    
-    let route = responseJson.routes[0];
+    this.user = JSON.parse(await AsyncStorage.getItem('user'));
+    //let collections = JSON.parse(await AsyncStorage.getItem("collections"));
+    let collectionsToday = JSON.parse(await AsyncStorage.getItem("collectionsToday"));
+    let collectionsHistory = JSON.parse(await AsyncStorage.getItem("collectionsHistory"));
+    console.log()
+    let route = JSON.parse(await AsyncStorage.getItem("route"));
+    this.coordinates = JSON.parse(await AsyncStorage.getItem("coordinates"));;
+    this.paths = JSON.parse(await AsyncStorage.getItem("paths"));;
 
-    this.coordinates = [];
-    route.legs.forEach((leg)=>{
-      leg.steps.forEach((step)=>{
-        this.coordinates.push({latitude: step.start_location.lat, longitude: step.start_location.lng},{latitude: step.end_location.lat, longitude: step.end_location.lng})
-      })
-    })
-    console.log(JSON.stringify(this.coordinates)+"hello coordinates");
     this.map.fitToCoordinates(this.coordinates, {
       edgePadding: { top: 50, right: 50, bottom: 50, left: 50 },
       animated: true,
     });
     this.setState({
-      user: user,
-      truck: truck,
-      pickuplocations: pickupLocations,
-      route: responseJson.routes[0]
+      collectionsToday,
+      collectionsHistory,
+      route: route
     })
   }
   render() {
@@ -114,32 +103,18 @@ export default class MapNavigationScreen extends React.Component {
             
           }}
         >
+                  <MapView.Polyline 
+                    coordinates={this.paths}
+                    strokeColor="#000"
+                    strokeColors={strokeColors}
+                    strokeWidth={6}
+                  />
             
-            <MapView.Polyline 
-              coordinates={this.coordinates}
-              strokeColor="#000"
-              strokeColors={strokeColors}
-              strokeWidth={6}
-            />
+            
           {
 
-            this.state.pickuplocations.map((pickup,index)=>{
-              if(index == 0){
-                return(
-                  <MapView.Marker
-                    key={pickup.key}
-                    coordinate={{
-                      latitude: pickup.location._lat,
-                      longitude: pickup.location._long,
-                    }}
-                    title={pickup.pickupid}
-                    description={(index+1).toString()}
-                    pinColor="blue"
-                  >
-                  </MapView.Marker>
-                )
-              }
-              else return(
+            this.state.collectionsToday.map((pickup,index)=>{
+              return(
                 <MapView.Marker
                   key={pickup.key}
                   coordinate={{
