@@ -16,14 +16,15 @@ const ASPECT_RATIO = width / height
 const LATITUDE_DELTA = 0.008
 const LONGITUDE_DELTA = LATITUDE_DELTA * ASPECT_RATIO
 
-export default class PickupLocationsScreen extends React.Component {
+export default class collectionsTodayScreen extends React.Component {
   constructor(props){
     super(props);
-    this.loadPickupLocations();
+    this.loadcollectionsToday();
     this.loadUser();
     this.state = {
       user:{},
-      pickuplocations:[],
+      collectionsToday:[],
+      collectionsHistory:[],
       type:"current",
     }
     this.coordinates = [];
@@ -38,9 +39,25 @@ export default class PickupLocationsScreen extends React.Component {
   componentDidMount(){
     
   }
-  loadPickupLocations = async ()=>{
-    var pickupLocations = JSON.parse(await AsyncStorage.getItem('eBasuraNavigationPickupLocations'))
-    pickupLocations = pickupLocations.map((pickup)=>{
+  loadData = async ()=>{
+
+  }
+  loadcollectionsToday = async ()=>{
+    var collectionsToday = [];
+    var collectionsHistory = [];
+    collectionsToday = JSON.parse(await AsyncStorage.getItem('collectionsToday'));
+    collectionsHistory = JSON.parse(await AsyncStorage.getItem('collectionsHistory'));
+    collectionsToday = collectionsToday.map((pickup)=>{
+      pickup.infoLeftOpenOffset = (-1)*windowX*.1;
+      pickup.infoRightOpenOffset = windowX*.1;
+      pickup.infoLeftCloseOffset = (-1)*windowX*.4;
+      pickup.infoRightCloseOffset = windowX*.4;
+      pickup.isOpen = false;
+      pickup.infoLeftCurrentOffset = new Animated.Value( pickup.infoLeftCloseOffset );
+      pickup.infoRightCurrentOffset = new Animated.Value( pickup.infoRightCloseOffset );
+      return pickup;
+    });
+    collectionsHistory = collectionsHistory.map((pickup)=>{
       pickup.infoLeftOpenOffset = (-1)*windowX*.1;
       pickup.infoRightOpenOffset = windowX*.1;
       pickup.infoLeftCloseOffset = (-1)*windowX*.4;
@@ -51,7 +68,7 @@ export default class PickupLocationsScreen extends React.Component {
       return pickup;
     });
     this.coordinates = [];
-    pickupLocations.forEach((pickup, index)=>{
+    [...collectionsToday, ...collectionsHistory].forEach((pickup, index)=>{
       this.coordinates.push({
         latitude: pickup.location._lat,
         longitude: pickup.location._long,
@@ -64,7 +81,8 @@ export default class PickupLocationsScreen extends React.Component {
     });
     //this.map.fitToSuppliedMarkers(this.coordinates, true);
     this.setState({
-      pickuplocations: pickupLocations
+      collectionsToday: collectionsToday,
+      collectionsHistory: collectionsHistory,
     })
 
     console.log('Pickup Locations Loaded');
@@ -81,7 +99,7 @@ export default class PickupLocationsScreen extends React.Component {
       latitude: item.location._lat,
       longitude: item.location._long,
     },0,0);
-    item.markerRef.showCallout();
+    
     const anims = [];
     var addAnim = (pickupItem, type)=>{
       anims.push(
@@ -106,7 +124,7 @@ export default class PickupLocationsScreen extends React.Component {
       else pickupItem.isOpen = true;
     };
     
-    var openItems = this.state.pickuplocations.filter((i)=>{
+    var openItems = this.state.collectionsToday.filter((i)=>{
       return i.isOpen == true;
     });
     if(openItems.length){
@@ -117,7 +135,8 @@ export default class PickupLocationsScreen extends React.Component {
     if(item.isOpen) addAnim(item,"close");
     else addAnim(item,"open");
 
-    Animated.parallel( anims,{ useNativeDriver: true }).start();
+    await Animated.parallel( anims,{ useNativeDriver: true }).start();
+    item.markerRef.showCallout();
     
   }
   render() {
@@ -184,7 +203,7 @@ export default class PickupLocationsScreen extends React.Component {
               longitudeDelta: LONGITUDE_DELTA,
           }}>
             {
-              this.state.pickuplocations.map((pickup,index)=>{
+              [...this.state.collectionsToday, ...this.state.collectionsHistory].map((pickup,index)=>{
                 return(
                   <MapView.Marker
                     key={pickup.key}
@@ -206,7 +225,7 @@ export default class PickupLocationsScreen extends React.Component {
         </View>
         <View style={styles.listContainer}>
           <FlatList
-            data={this.state.pickuplocations}
+            data={(this.state.type=="current")?this.state.collectionsToday:this.state.collectionsHistory}
             renderItem={({item}) => {
               let statusColor = "white"
               switch(item.status){

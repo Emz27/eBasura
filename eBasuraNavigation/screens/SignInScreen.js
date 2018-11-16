@@ -1,3 +1,4 @@
+import {parse, stringify} from 'flatted/esm'
 import React from 'react';
 import {
   ActivityIndicator,
@@ -21,27 +22,27 @@ export default class SignInScreen extends React.Component {
   constructor(props){
     super(props);
     this.state = {
-      userid: '',
+      userId: '',
       password: '',
-      useridError: '',
+      userIdError: '',
       passwordError: '',
     }
   }
   onInputChange = (input)=>{
     this.setState({
-      useridError: '',
+      userIdError: '',
       passwordError: '',
       ...input,
     });
   }
-  rememberUser = async (userid) =>{
+  rememberUser = async (userId) =>{
     await AsyncStorage.setItem()
   }
   onSubmit = async ()=>{
     let error = false;
-    if(!this.state.userid){
+    if(!this.state.userId){
       error = true;
-      this.setState({useridError: 'This field is required'})
+      this.setState({userIdError: 'This field is required'})
     }
     if(!this.state.password){
       error = true;
@@ -49,20 +50,20 @@ export default class SignInScreen extends React.Component {
     }
     if(error) return false;
 
-    let users = await firebase.firestore().collection('users').where('userid','==',this.state.userid).get();
-    console.log(users.docs.length)
+    let Users = await firebase.firestore().collection('Users').where('userId','==',this.state.userId).get();
+    console.log(Users.docs.length)
 
-    if( !users.docs.length ){
+    if( !Users.docs.length ){
       return this.setState({
-        useridError: 'User doesnt exist'
+        userIdError: 'User doesnt exist'
       })
     }
-    else if( users.docs[0].data().password != this.state.password){
+    else if( Users.docs[0].data().password != this.state.password){
       return this.setState({
         passwordError: 'User ID and Password does not match'
       })
     }
-    await AsyncStorage.setItem('eBasuraNavigationUser', JSON.stringify({ key: users.docs[0].id, ...users.docs[0].data() }) );
+    await AsyncStorage.setItem('user', JSON.stringify({ key: Users.docs[0].id, ...Users.docs[0].data() }) );
     this.props.navigation.navigate('AuthLoading');
   }
   render() {
@@ -70,11 +71,11 @@ export default class SignInScreen extends React.Component {
       <View style={styles.container}>
         <TextInput
           style={{height: 40, borderColor: 'gray', borderWidth: 1}}
-          onChangeText={(text) => this.onInputChange({userid:text})}
-          value={this.state.userid}
+          onChangeText={(text) => this.onInputChange({userId:text})}
+          value={this.state.userId}
           placeholder="User ID"
         />
-        <Text>{this.state.useridError}</Text>
+        <Text>{this.state.userIdError}</Text>
         <TextInput
           style={{height: 40, borderColor: 'gray', borderWidth: 1}}
           onChangeText={(text) => this.onInputChange({password:text})}
