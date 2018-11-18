@@ -10,17 +10,7 @@ export default class TrucksCRUD extends Component{
   }
   render(){           
       return (
-        <div id="trucksCrudContainer">
-          TrucksCRUD
-          <form>
-            <label>
-              Name:
-              <input type="text" name="name" value />
-
-            </label>
-            <input type="submit" value="Submit" />
-          </form>
-        </div>
+        <div>TrucksCRUD</div>
       )   
   }
 }
