@@ -1,4 +1,12 @@
 
+const batches = {
+    batchId: [],
+    pickupLocations: [],
+    createdBy: "",
+    truckId: "",
+    collectors: ""
+}
+
 const collection = {
     address: "Socorro, Cubao, Quezon City, Metro Manila",
     comment: "",
@@ -48,6 +56,7 @@ const truck = {
 
 
 export default {
+    baches,
     collection,
     user,
     truck,
