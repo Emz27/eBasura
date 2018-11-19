@@ -1,10 +1,8 @@
 
 const batches = {
     batchId: [],
-    pickupLocations: [],
-    createdBy: "",
-    truckId: "",
-    collectors: ""
+    pickupLocationsId: [],
+    pickupLocationsDocId: [],
 }
 
 const collection = {

@@ -8,7 +8,7 @@ export default class UsersCRUD extends React.Component {
   constructor(props){
     super(props);
     this.state = {
-      userDoc:"",
+      userDocId:"",
       userName: "",
       password: "",
       confirmPassword: "",
@@ -38,7 +38,7 @@ export default class UsersCRUD extends React.Component {
   }
   onUserEdit = (user)=>{
     this.setState({
-      userDoc: user.key,
+      userDocId: user.key,
       userName: user.userId,
       password: user.password,
       confirmPassword: user.password,
@@ -50,7 +50,7 @@ export default class UsersCRUD extends React.Component {
   }
   clearForm = ()=>{
     this.setState({
-      userDoc:"",
+      userDocId:"",
       userName: "",
       password: "",
       confirmPassword: "",
@@ -85,8 +85,8 @@ export default class UsersCRUD extends React.Component {
   }
   onSave = async (event)=>{
     if(await this.validateForm()){
-      if(this.state.userDoc){
-        await firestore().collection("Users").doc(this.state.userDoc).update({
+      if(this.state.userDocId){
+        await firestore().collection("Users").doc(this.state.userDocId).update({
           userId: this.state.userName,
           password: this.state.password
         });
