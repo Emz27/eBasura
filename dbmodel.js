@@ -1,6 +1,6 @@
 
 const batches = {
-    batchId: [],
+    batchId: "",
     pickupLocationsId: [],
     pickupLocationsDocId: [],
 }
@@ -22,6 +22,7 @@ const user = {
     userId: "",
     password: "",
     truckId: "",
+    truckDocId: "",
     type: "",
 }
 
@@ -40,14 +41,17 @@ const pickupLocation = {
 
 const truck = {
     truckId:"",
-    collectors:[],
+    collectorsDocId: [],
+    collectorsId: [],
     location: {
-        latitude:"",
-        longitude: "",
+      latitude:"",
+      longitude: "",
     },
     route: {
 
-    }
+    },
+    batchId:"",
+    batchDocId:"",
 }
 
 
