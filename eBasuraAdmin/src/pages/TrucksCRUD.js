@@ -18,10 +18,20 @@ export default class TrucksCRUD extends React.Component {
       batches:[],
       removedUsers:[],
       addedUsers:[],
+      isLoading: false
     }
   }
+  emptyForm = {
+    truckDocId: "",
+    truckId: "", 
+    collectors: [],
+    batch: {},
+    truckIdError: "",
+  }
   componentDidMount = async ()=>{
-    await this.loadData();
+    this.setState({
+      isLoading: true
+    },async ()=>{await this.loadData();});
   }
   loadData = async ()=>{
     var trucks = [];
@@ -62,26 +72,29 @@ export default class TrucksCRUD extends React.Component {
         collectors : doc.data().collectors
       });
     })
-    console.dir("users: "+ users);
-    console.log("trucks: "+ trucks);
-    console.log("batches: "+ batches);
+    console.dir(users);
+    console.dir(trucks);
+    console.dir(batches);
     this.setState({
       users: users,
       trucks: trucks,
       batches: batches,
+      isLoading: false,
     });
   }
   onInputChange = (input)=>{
     this.setState({...input});
   }
   onEdit = (item)=>{
+    console.dir(item);
     this.setState({
       truckDocId: item.truckDocId,
       truckId: item.truckId, 
       batch: (item.batch),
       collectors: (item.collectors.length > 0)?item.collectors:[],
       truckIdError: "",
-    })
+      isLoading: true,
+    },async ()=>{await this.loadData();})
   }
   onAddItem = (item, index)=>{
     var users = [...this.state.users];
@@ -94,6 +107,8 @@ export default class TrucksCRUD extends React.Component {
     });
   }
   onRemoveItem = (item, index)=>{
+    item.truckId = this.state.truckId;
+    item.truckDocId = this.state.truckDocId;
     var collectors = [...this.state.collectors];
     collectors.splice(index,1);
     this.setState({
@@ -103,17 +118,30 @@ export default class TrucksCRUD extends React.Component {
     })
   }
   onDelete = async (item)=>{
-    await firestore().collection("Trucks").doc(item.truckDocId).delete();
-    this.clearForm();
-    this.loadData();
-  }
-  clearForm = ()=>{
+    var batch = firestore().batch();
+
+    this.state.collectors.forEach((user)=>{
+      batch.update(
+        firestore().collection("Users").doc(user.userDocId),
+        {
+          truck:{
+            truckId: "",
+            truckDocId: "",
+          }
+        }
+      );
+    })
+    batch.delete(firestore().collection("Trucks").doc(item.truckDocId));
+    await batch.commit();
     this.setState({
       truckDocId: "",
       truckId: "", 
       collectors: [],
       batch: {},
       truckIdError: "",
+      isLoading: true
+    },async ()=>{
+      await this.loadData();
     });
   }
   validateForm = async ()=>{
@@ -131,38 +159,56 @@ export default class TrucksCRUD extends React.Component {
     else return true;
   }
   onSave = async (event)=>{
-    if(await this.validateForm()){
-      var truck = {
-        truckId: this.state.truckId, 
-        collectors: this.state.collectors,
-        batch: this.state.batch
-      } 
-      if(this.state.truckDocId){
-        await firestore().collection("Trucks").doc(this.state.truckDocId).update(truck);
+    
+    this.setState({
+      isLoading: true,
+    }, async ()=>{
+      if(await this.validateForm()){
+        var truckDocId = "";
+        var truck = {
+          truckId: this.state.truckId, 
+          collectors: this.state.collectors,
+          batch: this.state.batch
+        } 
+        if(this.state.truckDocId){
+          truckDocId = this.state.truckDocId;
+          await firestore().collection("Trucks").doc(this.state.truckDocId).update(truck);
+        }
+        else {
+          var truckRef = await firestore().collection("Trucks").add(truck);
+          truckDocId = truckRef.id;
+        }
+        this.state.users.forEach((user)=>{
+          firestore().collection("Users").doc(user.userDocId).update({
+            truck:{
+              truckId: "",
+              truckDocId: ""
+            }
+          })
+        })
+        this.state.collectors.filter((user)=>user.truck.truckId.length==0).forEach((user)=>{
+          firestore().collection("Users").doc(user.userDocId).update({
+            truck:{
+              truckId: this.state.truckId,
+              truckDocId: truckDocId
+            }
+          })
+        })
+        console.dir(this.state.collectors);
+        console.dir(this.state.users);
+        console.log("save successful");
+        this.setState({
+          ...this.emptyForm,
+        }, async ()=>{
+          await this.loadData();
+        })
       }
       else {
-        await firestore().collection("Trucks").doc().set(truck);
+        this.setState({
+          isLoading: false,
+        })
       }
-      this.state.users.filter((user)=>user.truck.truckId.length>0).forEach((user)=>{
-        firestore().collection("Users").doc(user.userDocId).update({
-          truck:{
-            truckId: "",
-            truckDocId: ""
-          }
-        })
-      })
-      this.state.collectors.filter((user)=>user.truck.truckId.length==0).forEach((user)=>{
-        firestore().collection("Users").doc(user.userDocId).update({
-          truck:{
-            truckId: this.state.truckId,
-            truckDocId: this.state.truckDocId
-          }
-        })
-      })
-      this.clearForm();
-      this.loadData();
-      console.log("save successful");
-    }
+    })
   }
   
   render (){
@@ -200,7 +246,7 @@ export default class TrucksCRUD extends React.Component {
                         
                         <div>{user.userId}</div>
                         <ButtonGroup size="sm" className="ml-auto">
-                            <Button onClick={()=>{this.onRemoveItem( user ,index )}}>Remove</Button>
+                            <Button disabled={this.state.isLoading} onClick={()=>{this.onRemoveItem( user ,index )}}>Remove</Button>
                         </ButtonGroup>
                       </Row>
                     </ListGroupItem>
@@ -209,7 +255,7 @@ export default class TrucksCRUD extends React.Component {
               </ListGroup>
             </FormGroup>
             <hr />
-            <Button
+            <Button disabled={this.state.isLoading}
               onClick={(event)=>this.onSave(event)}
              >Save</Button>
           </Form>
@@ -225,8 +271,10 @@ export default class TrucksCRUD extends React.Component {
                         <div>{truck.truckId}</div>
                         <ButtonGroup size="sm" className="ml-auto">
                           <Button
+                            disabled={this.state.isLoading}
                             onClick={()=>{this.onEdit(truck)}}>Edit</Button>
                           <Button
+                            disabled={this.state.isLoading}
                             onClick={()=>{this.onDelete(truck)}}>Delete</Button>
                         </ButtonGroup>
                       </Row>
@@ -243,7 +291,7 @@ export default class TrucksCRUD extends React.Component {
                     <ListGroupItem key={user.userDocId}>
                       <Row>
                         <ButtonGroup size="sm" className="mr-auto">
-                            <Button onClick={()=>{this.onAddItem( user ,index )}}>Add</Button>
+                            <Button disabled={this.state.isLoading} onClick={()=>{this.onAddItem( user ,index )}}>Add</Button>
                         </ButtonGroup>
                         <div>{user.userId}</div>
                       </Row>
