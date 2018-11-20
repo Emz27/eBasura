@@ -15,8 +15,18 @@ export default class UsersCRUD extends React.Component {
       userNameError: "",
       passwordError: "",
       confirmPasswordError: "",
-      users: []
+      users: [],
+      isLoading: false,
     }
+  }
+  emptyForm = {
+    userDocId:"",
+    userName: "",
+    password: "",
+    confirmPassword: "",
+    userNameError: "",
+    passwordError: "",
+    confirmPasswordError: ""
   }
   componentDidMount = async ()=>{
     await this.loadUsers();
@@ -31,7 +41,7 @@ export default class UsersCRUD extends React.Component {
         ...doc.data()
       });
     });
-    this.setState({users: users});
+    this.setState({users: users, isLoading: false});
   }
   onInputChange = (input)=>{
     this.setState({...input});
@@ -45,19 +55,27 @@ export default class UsersCRUD extends React.Component {
     })
   }
   onUserDelete = async (user)=>{
-    await firestore().collection("Users").doc(user.key).delete();
-    this.loadUsers();
-  }
-  clearForm = ()=>{
+
     this.setState({
-      userDocId:"",
-      userName: "",
-      password: "",
-      confirmPassword: "",
-      userNameError: "",
-      passwordError: "",
-      confirmPasswordError: ""
-    });
+      isLoading: true,
+    }, async ()=>{
+
+      if(user.truck.truckDocId){
+        firestore().runTransaction(async (t)=>{
+          var truckResult = await t.get(firestore().collection("Trucks").doc(user.truck.truckDocId));
+          if(truckResult.exists){
+            t.update(firestore().collection("Trucks").doc(user.truck.truckDocId),{
+              collectors: truckResult.data().collectors.filter((item)=>{
+                            return item.userId != user.userId
+                          })
+            });
+            
+          }
+        })
+      }
+      await firestore().collection("Users").doc(user.key).delete();
+      await this.loadUsers();
+    })
   }
   validateForm = async ()=>{
     var error = {
@@ -72,8 +90,13 @@ export default class UsersCRUD extends React.Component {
 
     if(this.state.userName.length == 0 ) error.userNameError = "Username is required";
     else {
-      var result = await firestore().collection("Users").where( "userId", "==", this.state.userName ).get();
-      if(result.docs.length > 0)  error.userNameError = "Username is not available";
+      if(this.state.userDocId){
+
+      }
+      else {
+        var result = await firestore().collection("Users").where( "userId", "==", this.state.userName ).get();
+        if(result.docs.length > 0)  error.userNameError = "Username is not available";
+      }
     }
     
     this.setState({...error});
@@ -84,28 +107,38 @@ export default class UsersCRUD extends React.Component {
     else return true;
   }
   onSave = async (event)=>{
-    if(await this.validateForm()){
-      if(this.state.userDocId){
-        await firestore().collection("Users").doc(this.state.userDocId).update({
-          userId: this.state.userName,
-          password: this.state.password
-        });
+    this.setState({
+      isLoading: true
+    }, async ()=>{
+      if(await this.validateForm()){
+        if(this.state.userDocId){
+          await firestore().collection("Users").doc(this.state.userDocId).update({
+            userId: this.state.userName,
+            password: this.state.password
+          });
+        }
+        else {
+          await firestore().collection("Users").doc().set({
+            userId: this.state.userName,
+            password: this.state.password,
+            truck: {
+              truckId:"",
+              truckDocId:"",
+            },
+            type: "collector",
+          });
+        }
+        this.setState({...this.emptyForm}, async ()=>{
+          this.loadUsers();
+        })
+        console.log("save successful");
       }
       else {
-        await firestore().collection("Users").doc().set({
-          userId: this.state.userName,
-          password: this.state.password,
-          truck: {
-            truckId:"",
-            truckDocId:"",
-          },
-          type: "collector",
-        });
+        this.setState({
+          isLoading: false
+        })
       }
-      this.clearForm();
-      this.loadUsers();
-      console.log("save successful");
-    }
+    });
   }
   render() {
     return (
@@ -145,6 +178,7 @@ export default class UsersCRUD extends React.Component {
             </Row>
             <hr />
             <Button
+              disabled={this.state.isLoading}
               onClick={(event)=>this.onSave(event)}
              >Save</Button>
           </Form>
@@ -159,8 +193,10 @@ export default class UsersCRUD extends React.Component {
                     <div>{user.userId}</div>
                     <ButtonGroup size="sm" className="ml-auto">
                       <Button
+                        disabled={this.state.isLoading}
                         onClick={()=>{this.onUserEdit(user)}}>Edit</Button>
                       <Button
+                        disabled={this.state.isLoading}
                         onClick={()=>{this.onUserDelete(user)}}>Delete</Button>
                     </ButtonGroup>
                   </Row>
