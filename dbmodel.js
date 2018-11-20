@@ -41,8 +41,6 @@ const pickupLocation = {
 
 const truck = {
     truckId:"",
-    collectorsDocId: [],
-    collectorsId: [],
     location: {
       latitude:"",
       longitude: "",
@@ -50,8 +48,8 @@ const truck = {
     route: {
 
     },
-    batchId:"",
-    batchDocId:"",
+    collectors:[],
+    batches:[],
 }
 
 

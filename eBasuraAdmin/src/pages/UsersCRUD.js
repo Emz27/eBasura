@@ -95,7 +95,10 @@ export default class UsersCRUD extends React.Component {
         await firestore().collection("Users").doc().set({
           userId: this.state.userName,
           password: this.state.password,
-          truckId: "",
+          truck: {
+            truckId:"",
+            truckDocId:"",
+          },
           type: "collector",
         });
       }

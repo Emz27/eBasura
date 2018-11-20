@@ -10,16 +10,14 @@ export default class TrucksCRUD extends React.Component {
     this.state = {
       truckDocId: "",
       truckId: "", 
-      collectorsDocId: [],
-      collectorsId: [],
-      batchId: "",
-      batchDocId: "",
       batch: {},
       collectors: [],
 
       trucks:[],
       users:[],
       batches:[],
+      removedUsers:[],
+      addedUsers:[],
     }
   }
   componentDidMount = async ()=>{
@@ -36,14 +34,12 @@ export default class TrucksCRUD extends React.Component {
       batches.push({
         batchDocId: doc.id,
         batchId: doc.data().batchId,
-        pickupLocationsId: ( doc.data().pickupLocationsId.length > 0 )? doc.data().pickupLocationsId :[],
-        pickupLocationsDocId: (doc.data().pickupLocationsDocId.length > 0 )?doc.data().pickupLocationsDocId.length: [],
+        pickupLocations: doc.data().pickupLocations
       });
     });
 
     var userResults = await firestore().collection("Users")
-        .where("type","==","collector")
-        .where("truckId","==","")
+        .where("truck.truckId","==","")
         .get();
     
     userResults.docs.forEach((doc)=>{
@@ -51,8 +47,7 @@ export default class TrucksCRUD extends React.Component {
         userDocId: doc.id,
         userId: doc.data().userId,
         password: doc.data().password,
-        truckId: doc.data().truckId,
-        truckDocId: doc.data().truckDocId,
+        truck: doc.data().truck,
         type: "collector",
       });
     })
@@ -60,37 +55,16 @@ export default class TrucksCRUD extends React.Component {
     var truckResults = await firestore().collection( "Trucks" ).get();
 
     truckResults.docs.forEach(async (doc)=>{
-      var batchResult = ""
-      if(doc.data().batchDocId){
-        batchResult = await firestore().collection("Batches").doc(doc.data().batchDocId).get();
-      }
-      var collectorsResults = await firestore().collection("Users").where("truckId","==",doc.data().truckId).get();
-      var batch = (batchResult&&batchResult.exists)?({
-        batchDocId: batchResult.id,
-        batchId: batchResult.data().batchId,
-        pickupLocationsId: batchResult.data().pickupLocationsId || [],
-        pickupLocationsDocId: batchResult.data().pickupLocationsId || [],
-      }):{};
-      var collectors = [];
-
-      collectorsResults.docs.forEach((item)=>{
-        collectors.push({
-          userDocId: item.id,
-          userId: item.data().userId
-        });
-      });
-
       trucks.push({
         truckDocId: doc.id,
         truckId: doc.data().truckId, 
-        collectorsDocId: (doc.data().collectorsDocId.length > 0)?doc.data().collectorsDocId : [] ,
-        collectorsId:(doc.data().collectorsId.length > 0)?doc.data().collectorsId : [],
-        batchId: doc.data().batchId,
-        batchDocId: doc.data().batchDocId,
-        batch: batch,
-        collectors : collectors
+        batch: doc.data().batch,
+        collectors : doc.data().collectors
       });
     })
+    console.dir("users: "+ users);
+    console.log("trucks: "+ trucks);
+    console.log("batches: "+ batches);
     this.setState({
       users: users,
       trucks: trucks,
@@ -104,27 +78,28 @@ export default class TrucksCRUD extends React.Component {
     this.setState({
       truckDocId: item.truckDocId,
       truckId: item.truckId, 
-      collectorsDocId: item.collectorsDocId,
-      collectorsId: item.collectorsId,
-      batchId: item.batchId,
-      batchDocId: item.batchDocId,
+      batch: (item.batch),
+      collectors: (item.collectors.length > 0)?item.collectors:[],
       truckIdError: "",
-      batch: item.batch,
-      collectors: item.collectors
     })
   }
   onAddItem = (item, index)=>{
+    var users = [...this.state.users];
+    users.splice(index,1);
     this.setState({
-      collectorsDocId: [...this.state.collectorsDocId, item.userDocId],
-      collectorsId: [...this.state.collectorsId, item.userId],
-      users: this.state.users.splice(index,1)
-    })
+      collectors : [...this.state.collectors, item],
+      users: users
+    },()=>{
+
+    });
   }
   onRemoveItem = (item, index)=>{
+    var collectors = [...this.state.collectors];
+    collectors.splice(index,1);
     this.setState({
-      collectorsDocId: this.state.users.splice(index,1),
-      collectorsId: this.state.users.splice(index,1),
+      collectors: collectors,
       users: [...this.state.users,item]
+    },()=>{
     })
   }
   onDelete = async (item)=>{
@@ -136,10 +111,8 @@ export default class TrucksCRUD extends React.Component {
     this.setState({
       truckDocId: "",
       truckId: "", 
-      collectorsDocId: [],
-      collectorsId: [],
-      batchId: "",
-      batchDocId: "",
+      collectors: [],
+      batch: {},
       truckIdError: "",
     });
   }
@@ -148,7 +121,7 @@ export default class TrucksCRUD extends React.Component {
       truckIdError:"",
     }
     if(this.state.truckId.length == 0 ) error.truckIdError = "Truck ID field is required";
-    else{
+    else if(this.state.truckDocId.length == 0){
       var result = await firestore().collection("Trucks").where( "truckId", "==", this.state.truckId ).get();
       if(result.docs.length > 0)  error.truckIdError = "truckId is not available";
     }
@@ -159,31 +132,33 @@ export default class TrucksCRUD extends React.Component {
   }
   onSave = async (event)=>{
     if(await this.validateForm()){
-      var collectorsId = [];
-      var collectorsDocId = [];
-
-      this.state.collectors.forEach((item,index)=>{
-        collectorsId.push(item.collectorsId);
-        collectorsDocId.push(item.collectorsDocId);
-      });
+      var truck = {
+        truckId: this.state.truckId, 
+        collectors: this.state.collectors,
+        batch: this.state.batch
+      } 
       if(this.state.truckDocId){
-        await firestore().collection("Trucks").doc(this.state.truckDocId).update({
-          truckId: this.state.truckId, 
-          collectorsDocId: this.state.collectorsDocId,
-          collectorsId: this.state.collectorsId,
-          batchId: this.state.batchId,
-          batchDocId: this.state.batchDocId,
-        });
+        await firestore().collection("Trucks").doc(this.state.truckDocId).update(truck);
       }
       else {
-        await firestore().collection("Trucks").doc().set({
-          truckId: this.state.truckId, 
-          collectorsDocId: this.state.collectorsDocId,
-          collectorsId: this.state.collectorsId,
-          batchId: this.state.batchId,
-          batchDocId: this.state.batchDocId,
-        });
+        await firestore().collection("Trucks").doc().set(truck);
       }
+      this.state.users.filter((user)=>user.truck.truckId.length>0).forEach((user)=>{
+        firestore().collection("Users").doc(user.userDocId).update({
+          truck:{
+            truckId: "",
+            truckDocId: ""
+          }
+        })
+      })
+      this.state.collectors.filter((user)=>user.truck.truckId.length==0).forEach((user)=>{
+        firestore().collection("Users").doc(user.userDocId).update({
+          truck:{
+            truckId: this.state.truckId,
+            truckDocId: this.state.truckDocId
+          }
+        })
+      })
       this.clearForm();
       this.loadData();
       console.log("save successful");
