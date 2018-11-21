@@ -1,8 +1,7 @@
 
 const batches = {
     batchId: "",
-    pickupLocationsId: [],
-    pickupLocationsDocId: [],
+    pickupLocations: []
 }
 
 const collection = {
@@ -30,6 +29,7 @@ const pickupLocation = {
     pickupId: "",
     address: "",
     comment: "",
+    batch: {},
     location: {
         latitude:"",
         longitude: "",
@@ -56,9 +56,9 @@ const truck = {
 
 
 export default {
-    baches,
-    collection,
-    user,
-    truck,
-    pickupLocation
+  batches,
+  collection,
+  user,
+  truck,
+  pickupLocation
 };
