@@ -45,9 +45,6 @@ export default class NavigationBar extends React.Component {
               <NavItem>
                 <NavLink className="nav-link" to="/batches">Batches</NavLink>
               </NavItem>
-              <NavItem>
-                <NavLink className="nav-link" to="/pickup_locations">Pickup Locations</NavLink>
-              </NavItem>
             </Nav>
           </Collapse>
         </Navbar>

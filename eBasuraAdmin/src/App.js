@@ -14,7 +14,6 @@ class App extends Component {
       <BrowserRouter>
           <div id="container">
             <NavigationBar />
-            <Route path="/pickup_locations" component={PickupLocationsCRUD} />
             <Route path="/users" component={UsersCRUD} />
             <Route path="/batches" component={BatchesCRUD} />
             <Route path="/trucks" component={TrucksCRUD} />
