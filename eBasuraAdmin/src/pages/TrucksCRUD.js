@@ -1,12 +1,12 @@
 import React from 'react';
-import { Col, Row, Button, ButtonGroup, Form, FormGroup, FormFeedback, Label, Input, ListGroup, ListGroupItem } from 'reactstrap';
+import { Row, Button, ButtonGroup, Form, FormGroup, FormFeedback, Label, Input, ListGroup, ListGroupItem } from 'reactstrap';
 
 import { firestore } from 'firebase';
 import 'firebase/firestore';
 
 export default class TrucksCRUD extends React.Component {
-  constructor(props){
-    super(props);
+  constructor(){
+    super();
     this.state = {
       truckDocId: "",
       truckId: "", 
@@ -148,8 +148,8 @@ export default class TrucksCRUD extends React.Component {
     var error = {
       truckIdError:"",
     }
-    if(this.state.truckId.length == 0 ) error.truckIdError = "Truck ID field is required";
-    else if(this.state.truckDocId.length == 0){
+    if(this.state.truckId.length === 0 ) error.truckIdError = "Truck ID field is required";
+    else if(this.state.truckDocId.length === 0){
       var result = await firestore().collection("Trucks").where( "truckId", "==", this.state.truckId ).get();
       if(result.docs.length > 0)  error.truckIdError = "truckId is not available";
     }
@@ -186,7 +186,7 @@ export default class TrucksCRUD extends React.Component {
             }
           })
         })
-        this.state.collectors.filter((user)=>user.truck.truckId.length==0).forEach((user)=>{
+        this.state.collectors.filter((user)=>user.truck.truckId.length === 0).forEach((user)=>{
           firestore().collection("Users").doc(user.userDocId).update({
             truck:{
               truckId: this.state.truckId,

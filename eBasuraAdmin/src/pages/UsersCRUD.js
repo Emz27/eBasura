@@ -5,8 +5,8 @@ import { firestore } from 'firebase';
 import 'firebase/firestore';
 
 export default class UsersCRUD extends React.Component {
-  constructor(props){
-    super(props);
+  constructor(){
+    super();
     this.state = {
       userDocId:"",
       userName: "",
@@ -66,7 +66,7 @@ export default class UsersCRUD extends React.Component {
           if(truckResult.exists){
             t.update(firestore().collection("Trucks").doc(user.truck.truckDocId),{
               collectors: truckResult.data().collectors.filter((item)=>{
-                            return item.userId != user.userId
+                            return item.userId !== user.userId
                           })
             });
             
@@ -84,11 +84,11 @@ export default class UsersCRUD extends React.Component {
       confirmPasswordError: "",
     };
     
-    if(this.state.password.length == 0 ) error.passwordError = "Password is required";
-    else if(this.state.confirmPassword.length == 0 ) error.confirmPasswordError = "Confirm Password is required";
-    else if(this.state.password != this.state.confirmPassword) error.confirmPasswordError = "Confirm Password and Password does not match";
+    if(this.state.password.length === 0 ) error.passwordError = "Password is required";
+    else if(this.state.confirmPassword.length === 0 ) error.confirmPasswordError = "Confirm Password is required";
+    else if(this.state.password !== this.state.confirmPassword) error.confirmPasswordError = "Confirm Password and Password does not match";
 
-    if(this.state.userName.length == 0 ) error.userNameError = "Username is required";
+    if(this.state.userName.length === 0 ) error.userNameError = "Username is required";
     else {
       if(this.state.userDocId){
 
