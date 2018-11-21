@@ -1,16 +1,11 @@
 import React, { Component } from 'react';
 import { Row, Col, Button, ButtonGroup, Form, FormGroup, FormFeedback, Label, Input, ListGroup, ListGroupItem } from 'reactstrap';
-import {Gmaps, Marker, InfoWindow, Circle} from 'react-gmaps';
+import {Gmaps, Marker } from 'react-gmaps';
 
 import { firestore } from 'firebase';
 import 'firebase/firestore';
 
 const GOOGLE_API_KEY = 'AIzaSyAKLNDKXRY5niSySOE8TIdz2yFgBmHyhjo';
-
-const coords = {
-  lat: 51.5258541,
-  lng: -0.08040660000006028
-};
 
 const params = {v: '3.exp', key: GOOGLE_API_KEY};
 export default class BatchesCRUD extends Component{
@@ -49,7 +44,7 @@ export default class BatchesCRUD extends Component{
 
   onMapClick= (e)=>{
     console.log('onClick', e, e.latLng, e.latLng.lat());
-    if(this.state.isLoading) return false;
+    //if(this.state.isLoading) return false;
     this.setState({
       isLoading: true
     }, async ()=>{
@@ -104,13 +99,30 @@ export default class BatchesCRUD extends Component{
       batchId: batch.batchId,
       pickupLocations: batch.pickupLocations,
 
-      originalPickupLocations: [],
+      originalPickupLocations: batch.pickupLocations,
     })
   }
-  onDelete = async (batch)=>{
+  onDelete = (batch)=>{
     this.setState({
+      isLoading: true,
+    }, async ()=>{
+      var batchProcess = firestore().batch();
 
-    })
+      batch.pickupLocations.forEach((pickup, index)=>{
+        batchProcess.delete(firestore().collection("PickupLocations").doc(pickup.pickupDocId));
+      })
+      batchProcess.delete(firestore().collection("PickupLocations").doc(batch.batchDocId));
+      var truckRef = firestore().collection("Trucks").where("batch.batchId", "==", batch.batchId);
+      batchProcess.update(truckRef,{
+        batchDocId: "",
+        batchId: "",
+        pickupLocations: []
+      });
+      this.setState({
+        ...this.emptyForm,
+        isLoading: false
+      })
+    });
   }
   onRemove = async (pickup, index)=>{
     var pickupLocations = [...this.state.pickupLocations];
@@ -153,22 +165,26 @@ export default class BatchesCRUD extends Component{
         }
         console.log("pickuplocation",this.state.pickupLocations );
         console.log("originalpickuplocation", this.state.originalPickupLocations);
+        
         // delete removed pickups
-        this.state.originalPickupLocations.filter((originalPickup, index)=>{
-          return this.state.pickupLocations.some((pickup)=>{
-            return pickup.address !== originalPickup.address
-          })
-        }).forEach((pickup)=>{
-          console.log("pickup remove");
-          batchProcess.delete(pickupLocationsRef.doc(pickup.pickupDocId))
-        })
+        this.state.originalPickupLocations.forEach((originalPickup, index)=>{
+          var find = this.state.pickupLocations.findIndex((pickup)=>{
+            return pickup.pickupDocId === originalPickup.pickupDocId
+          });
+          if( find < 0 ){
+            console.log("pickupremove", pickupLocationsRef.doc(originalPickup.pickupDocId))
+            batchProcess.delete(pickupLocationsRef.doc(originalPickup.pickupDocId))
+          }
+        });
 
         // save added pickups
         this.state.pickupLocations.filter((pickup, index)=>{
           return pickup.pickupDocId === ""
         }).forEach((pickup)=>{
           console.log("add pickup");
-          batchProcess.set(pickupLocationsRef.doc(),{
+          var ref = pickupLocationsRef.doc();
+          pickup.pickupDocId = ref.id;
+          batchProcess.set(ref,{
             ...pickup,
             batch:{
               batchDocId: batchDocId,
