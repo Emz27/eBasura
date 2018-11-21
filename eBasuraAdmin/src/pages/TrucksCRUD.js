@@ -65,10 +65,13 @@ export default class TrucksCRUD extends React.Component {
     var truckResults = await firestore().collection( "Trucks" ).get();
 
     truckResults.docs.forEach(async (doc)=>{
+      
       trucks.push({
         truckDocId: doc.id,
         truckId: doc.data().truckId, 
-        batch: doc.data().batch,
+        batch: batches.findIndex((batch)=>{
+          return batch.batchId === doc.data().batch.batchId
+        }),
         collectors : doc.data().collectors
       });
     })
@@ -127,6 +130,10 @@ export default class TrucksCRUD extends React.Component {
           truck:{
             truckId: "",
             truckDocId: "",
+            batch: {
+              batchId: "",
+              pickupLocations: []
+            },
           }
         }
       );
@@ -137,7 +144,10 @@ export default class TrucksCRUD extends React.Component {
       truckDocId: "",
       truckId: "", 
       collectors: [],
-      batch: {},
+      batch: {
+        batchId: "",
+        pickupLocations: []
+      },
       truckIdError: "",
       isLoading: true
     },async ()=>{
@@ -165,10 +175,14 @@ export default class TrucksCRUD extends React.Component {
     }, async ()=>{
       if(await this.validateForm()){
         var truckDocId = "";
+        console.dir(this.state.batch);
         var truck = {
           truckId: this.state.truckId, 
           collectors: this.state.collectors,
-          batch: this.state.batch
+          batch: (this.state.batch >= 0)?this.state.batches[this.state.batch]:{
+            batchId: "",
+            pickupLocations: []
+          }
         } 
         if(this.state.truckDocId){
           truckDocId = this.state.truckDocId;
@@ -227,11 +241,15 @@ export default class TrucksCRUD extends React.Component {
             </FormGroup>
             <FormGroup>
               <Label for="batchId">Batch ID</Label>
-              <Input type="select" name="select" id="batchId">
+              <Input type="select" name="select" id="batchId"
+                onChange={(event)=>this.onInputChange({batch: event.target.value})}
+                value={this.state.batch}
+              >
+                <option key={""} value={-1}></option>
                 {
-                  this.state.batches.map((item)=>{
+                  this.state.batches.map((item, index)=>{
                     return(
-                      <option key={item.batchDocId} value={item.batchDocId}>{item.batchId}</option>
+                      <option key={item.batchDocId} value={index}>{item.batchId}</option>
                     )
                   })
                 }

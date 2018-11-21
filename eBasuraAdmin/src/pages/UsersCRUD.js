@@ -124,6 +124,10 @@ export default class UsersCRUD extends React.Component {
             truck: {
               truckId:"",
               truckDocId:"",
+              batch:{
+                batchId: "",
+                pickupLocations: []
+              }
             },
             type: "collector",
           });
