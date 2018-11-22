@@ -64,11 +64,9 @@ export default class MapNavigationScreen extends React.Component {
     //let collections = JSON.parse(await AsyncStorage.getItem("collections"));
     let collectionsToday = JSON.parse(await AsyncStorage.getItem("collectionsToday"));
     let collectionsHistory = JSON.parse(await AsyncStorage.getItem("collectionsHistory"));
-    console.log()
     let route = JSON.parse(await AsyncStorage.getItem("route"));
     this.coordinates = JSON.parse(await AsyncStorage.getItem("coordinates"));;
     this.paths = JSON.parse(await AsyncStorage.getItem("paths"));;
-
     this.map.fitToCoordinates(this.coordinates, {
       edgePadding: { top: 50, right: 50, bottom: 50, left: 50 },
       animated: true,
@@ -103,14 +101,13 @@ export default class MapNavigationScreen extends React.Component {
             
           }}
         >
-                  <MapView.Polyline 
-                    coordinates={this.paths}
-                    strokeColor="#000"
-                    strokeColors={strokeColors}
-                    strokeWidth={6}
-                  />
-            
-            
+            <MapView.Polyline 
+              coordinates={this.paths}
+              strokeColor="#000"
+              strokeColors={strokeColors}
+              strokeWidth={6}
+              miterLimit={50}
+            />
           {
 
             this.state.collectionsToday.map((pickup,index)=>{
@@ -118,8 +115,8 @@ export default class MapNavigationScreen extends React.Component {
                 <MapView.Marker
                   key={pickup.key}
                   coordinate={{
-                    latitude: pickup.location._lat,
-                    longitude: pickup.location._long,
+                    latitude: pickup.location.latitude,
+                    longitude: pickup.location.longitude,
                   }}
                   title={pickup.pickupid}
                   description={(index+1).toString()}

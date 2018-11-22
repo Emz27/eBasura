@@ -70,8 +70,8 @@ export default class collectionsTodayScreen extends React.Component {
     this.coordinates = [];
     [...collectionsToday, ...collectionsHistory].forEach((pickup, index)=>{
       this.coordinates.push({
-        latitude: pickup.location._lat,
-        longitude: pickup.location._long,
+        latitude: pickup.location.latitude,
+        longitude: pickup.location.longitude,
       })
     })
     console.log(JSON.stringify(this.coordinates)+"hello coordinates");
@@ -96,8 +96,8 @@ export default class collectionsTodayScreen extends React.Component {
   onItemPress = async (item)=>{
 
     this.map.animateToNavigation({
-      latitude: item.location._lat,
-      longitude: item.location._long,
+      latitude: item.location.latitude,
+      longitude: item.location.longitude,
     },0,0);
     
     const anims = [];
@@ -208,8 +208,8 @@ export default class collectionsTodayScreen extends React.Component {
                   <MapView.Marker
                     key={pickup.key}
                     coordinate={{
-                      latitude: pickup.location._lat,
-                      longitude: pickup.location._long,
+                      latitude: pickup.location.latitude,
+                      longitude: pickup.location.longitude,
                     }}
                     ref={ref => { pickup.markerRef = ref; }}
                     title={pickup.pickupid}

@@ -10,9 +10,11 @@ import {
 } from 'react-native';
 import { Constants, Location, Permissions } from 'expo';
 
-import * as firebase from 'firebase';
+import {firestore} from 'firebase';
 import 'firebase/firestore';
 import moment from 'moment';
+
+var polyline = require( 'google-polyline' )
 
 const GOOGLE_API_KEY = 'AIzaSyAKLNDKXRY5niSySOE8TIdz2yFgBmHyhjo';
 
@@ -45,7 +47,7 @@ export default class AuthLoadingScreen extends React.Component {
     let token = userToken;
     console.log('auth')
     console.log(token.userId)
-    let userData = await firebase.firestore().collection('Users').where('userId','==',token.userId).get();
+    let userData = await firestore().collection('Users').where('userId','==',token.userId).get();
 
     if ( userData.docs.length ){
       this.user = { key: userData.docs[0].id, ...userData.docs[0].data() };
@@ -60,14 +62,14 @@ export default class AuthLoadingScreen extends React.Component {
   loadData = async ()=>{
     let collectionsToday = [];
     let collectionsHistory = [];
-    let collections = await firebase.firestore().collection("Collections")
+    let collections = await firestore().collection("Collections")
                                 .where("collectors","array-contains",this.user.userId)
                                 .get();
-    console.log("load successful");
+
     collections.docs.forEach((doc)=>{
-      let currentDate = Date.now();
+      let currentDate = new Date();
       let collectionDate = new Date(doc.data().dateTime.toDate());
-      console.log(`current date: ${currentDate}, doc date: ${collectionDate}, isSame : ${moment(currentDate).isSame(collectionDate,'day')}`)
+      //console.log(`current date: ${currentDate}, doc date: ${collectionDate}, isSame : ${moment(currentDate).isSame(collectionDate,'day')}`)
       var data = doc.data();
       var col = {
         key: doc.id,
@@ -87,6 +89,35 @@ export default class AuthLoadingScreen extends React.Component {
       else collectionsHistory.push(col);
     });
 
+    if(collectionsToday.length <= 0){
+      var batchProcess = await firestore().batch();
+      var truckResult = await firestore().collection("Trucks").doc(this.user.truck.truckDocId).get();
+      console.log("truckDocId: ",this.user.truck.truckDocId );
+      console.log("truck exist:", truckResult.exists)
+      if(truckResult.exists){
+        var data = truckResult.data();
+
+        data.batch.pickupLocations.forEach((pickup)=>{
+          batchProcess.set(
+            firestore().collection("Collections").doc(),
+            {
+              address: pickup.address,
+              comment: pickup.comment,
+              dateTime: new Date(),
+              location: pickup.location,
+              pickupDocId: pickup.pickupDocId,
+              status: "pending",
+              batchId: data.batch.batchId,
+              truckDocId: truckResult.id,
+              collectors: data.collectors.map((c)=>c.userId),
+            }
+          );
+        });
+        console.log("create Collections", await batchProcess.commit())
+        return this.loadData();
+      }
+
+    }
 
     console.log("collectionsToday length: "+collectionsToday.length);
     console.log("collectionsHistory length: "+collectionsHistory.length);
@@ -94,13 +125,13 @@ export default class AuthLoadingScreen extends React.Component {
     origin = origin.coords.latitude+","+origin.coords.longitude;
     console.log(`origin : ${origin}`);
     let destination = origin;
-    let waypoints = collectionsToday.map( item => item.location._lat+','+item.location._long ).join('|');
+    let waypoints = collectionsToday.map( item => item.location.latitude+','+item.location.longitude ).join('|');
     console.log(`waypoints : ${waypoints}`);
     let response = await fetch(`https://maps.googleapis.com/maps/api/directions/json?origin=${origin}&destination=${destination}&waypoints=optimize:true|${waypoints}&key=${GOOGLE_API_KEY}`);
     let responseJson = await response.json();
     
     let route = responseJson.routes[0];
-    console.log("route: "+route);
+    //console.log("route: "+route);
     this.coordinates = [];
     this.paths = [];
     route.legs.forEach((leg)=>{
@@ -109,30 +140,24 @@ export default class AuthLoadingScreen extends React.Component {
         let endLatLng = {latitude: step.end_location.lat, longitude: step.end_location.lng}
         this.coordinates.push(startLatLng);
         this.coordinates.push(endLatLng);
+        decodedPolyline = polyline.decode(step.polyline.points );
+        decodedPolyline.forEach((item)=>{
+          this.paths = [...this.paths, { latitude: item[0], longitude: item[1] }];
+        })
       })
     })
-    let snapToRoadPointsInput = this.coordinates.map((coord)=>{
-      return coord.latitude+","+coord.longitude;
-    }).join("|");
-
-    let snapToRoadPointsResult = await fetch(`https://roads.googleapis.com/v1/snapToRoads?path=${snapToRoadPointsInput}&key=${GOOGLE_API_KEY}`)
-    let snapToRoadPoints = await snapToRoadPointsResult.json();
     
-    this.paths = snapToRoadPoints.snappedPoints.map((point)=>point.location);
-    console.log( JSON.stringify(this.paths));
 
     await AsyncStorage.setItem('user', JSON.stringify(this.user));
     //console.log(collections);
     //await AsyncStorage.setItem('collections', JSON.stringify(collections));
-    console.log(collectionsToday);
-
-    console.log(collectionsToday[0].address);
+    //console.log(collectionsToday);
     await AsyncStorage.setItem('collectionsToday',  JSON.stringify(collectionsToday));
     await AsyncStorage.setItem('collectionsHistory',  JSON.stringify(collectionsHistory));
     await AsyncStorage.setItem('route',  JSON.stringify(route));
     await AsyncStorage.setItem('coordinates',  JSON.stringify(this.coordinates));
     await AsyncStorage.setItem('paths',  JSON.stringify(this.paths));
-
+    console.log("Auth load successful!");
   }
   // Render any loading content that you like here
   render() {
