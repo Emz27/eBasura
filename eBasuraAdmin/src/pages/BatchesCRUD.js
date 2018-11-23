@@ -111,17 +111,19 @@ export default class BatchesCRUD extends Component{
       batch.pickupLocations.forEach((pickup, index)=>{
         batchProcess.delete(firestore().collection("PickupLocations").doc(pickup.pickupDocId));
       })
-      batchProcess.delete(firestore().collection("PickupLocations").doc(batch.batchDocId));
-      var truckRef = firestore().collection("Trucks").where("batch.batchId", "==", batch.batchId);
-      batchProcess.update(truckRef,{
-        batchDocId: "",
-        batchId: "",
-        pickupLocations: []
-      });
+      var truckResults = await firestore().collection("Trucks").where("batch.batchId", "==", batch.batchId).get();
+      truckResults.docs.forEach((truckDoc)=>{
+        batchProcess.update(firestore().collection("Trucks").doc(truckDoc.id),{
+          batchDocId: "",
+          batchId: "",
+          pickupLocations: []
+        });
+      })
+      batchProcess.delete(firestore().collection("Batches").doc(batch.batchDocId));
+      await batchProcess.commit();
       this.setState({
         ...this.emptyForm,
-        isLoading: false
-      })
+      }, async ()=>{ await this.loadData()})
     });
   }
   onRemove = async (pickup, index)=>{
