@@ -20,8 +20,10 @@ const collection = {
 const user = {
     userId: "",
     password: "",
-    truckId: "",
-    truckDocId: "",
+    truck:{
+      truckDocId:"",
+      truckId:"",
+    },
     type: "",
 }
 
@@ -48,8 +50,8 @@ const truck = {
     route: {
 
     },
-    collectors:[],
-    batches:[],
+    collectors:[{}],
+    batch:{},
 }
 
 
