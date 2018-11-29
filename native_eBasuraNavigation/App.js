@@ -1,80 +1,27 @@
 
 import React from 'react';
-import { Platform, StatusBar, StyleSheet, View , Text} from 'react-native';
+import { Platform, StatusBar, StyleSheet, View , Text, Alert} from 'react-native';
 //import { AppLoading, Asset, Font, Icon } from 'expo';
 import firebase from 'react-native-firebase';
 
-import AppNavigator from './navigation/AppNavigator.js';
-try{
-  firebase.initializeApp({
-    apiKey: 'AIzaSyCHOMBr5-qyYELVws4Exa6hO8V-utuBl58',
-    projectId: 'bamboo-rhino-221107'
-  });
 
-  // Initialize Cloud Firestore through Firebase
-  var db = firebase.firestore();
+import {Navigator} from './navigation/Navigator.js'
+import { withNavigation } from 'react-navigation';
 
-  // Disable deprecated features
-  db.settings({
-    timestampsInSnapshots: true
-  });
+firebase.firestore().settings({
+  persistence: true
+})
 
-}
-catch(e){
-  console.log("firebase initialization error ", e)
-}
+
 export default class App extends React.Component {
-  state = {
-    isLoadingComplete: false,
-  };
-
   render() {
-    if (!this.state.isLoadingComplete && !this.props.skipLoadingScreen) {
-      // return (
-      //   <AppLoading
-      //     startAsync={this._loadResourcesAsync}
-      //     onError={this._handleLoadingError}
-      //     onFinish={this._handleFinishLoading}
-      //   />
-      // );
-      this.props.skipLoadingScreen = true;
-      this.setState({ isLoadingComplete: true });
-      return (<View><Text>loadging</Text></View>)
-    } else {
       return (
         <View style={styles.container}>
           {Platform.OS === 'ios' && <StatusBar barStyle="default" />}
-          <AppNavigator />
+          <Navigator />
         </View>
       );
-    }
   }
-
-  _loadResourcesAsync = async () => {
-    // return Promise.all([
-    //   Asset.loadAsync([
-    //     require('./assets/images/robot-dev.png'),
-    //     require('./assets/images/robot-prod.png'),
-    //   ]),
-    //   Font.loadAsync({
-    //     // This is the font that we are using for our tab bar
-    //     ...Icon.Ionicons.font,
-    //     // We include SpaceMono because we use it in HomeScreen.js. Feel free
-    //     // to remove this if you are not using it in your app
-    //     'space-mono': require('./assets/fonts/SpaceMono-Regular.ttf'),
-    //   }),
-    // ]);
-  };
-
-  _handleLoadingError = error => {
-    // In this case, you might want to report the error to your error
-    // reporting service, for example Sentry
-    console.warn(error);
-  };
-
-  _handleFinishLoading = () => {
-    this.setState({ isLoadingComplete: true });
-  };
 }
 
 const styles = StyleSheet.create({

@@ -1,5 +1,5 @@
 import React from 'react';
-import { Platform } from 'react-native';
+import { Platform, Text } from 'react-native';
 import { createStackNavigator, createBottomTabNavigator } from 'react-navigation';
 
 // import TabBarIcon from '../components/TabBarIcon';
@@ -13,10 +13,8 @@ const MapNavigationStack = createStackNavigator({
 });
 
 MapNavigationStack.navigationOptions = {
-  tabBarLabel: 'Navigation',
-  tabBarIcon: ({ focused }) => (
-    <Text>hello1</Text>
-  ),
+  tabBarVisible: false,
+  header: null,
 };
 
 const PickupLocationsStack = createStackNavigator({
@@ -25,10 +23,8 @@ const PickupLocationsStack = createStackNavigator({
 });
 
 PickupLocationsStack.navigationOptions = {
-  tabBarLabel: 'Pickups',
-  tabBarIcon: ({ focused }) => (
-    <Text>hello2</Text>
-  ),
+  tabBarVisible: false,
+  header: null,
 };
 
 export default createBottomTabNavigator({

@@ -16,6 +16,8 @@ import io.invertase.firebase.firestore.RNFirebaseFirestorePackage;
 
 import com.airbnb.android.react.maps.MapsPackage;
 
+import com.horcrux.svg.SvgPackage;
+
 import java.util.Arrays;
 import java.util.List;
 
@@ -35,7 +37,8 @@ public class MainApplication extends Application implements ReactApplication {
           new RNGestureHandlerPackage(),
           new MapsPackage(),
           new RNFirebasePackage(),
-          new RNFirebaseFirestorePackage()
+          new RNFirebaseFirestorePackage(),
+          new SvgPackage()
       );
     }
 

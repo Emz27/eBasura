@@ -1,8 +1,8 @@
 import React from 'react';
-import { TouchableOpacity,TouchableNativeFeedback, Button, TouchableWithoutFeedback, Text, View, AsyncStorage, FlatList, StyleSheet, Animated, Dimensions } from 'react-native'
+import { ScrollView, TouchableOpacity,TouchableNativeFeedback, Button, TouchableWithoutFeedback, Text, View, AsyncStorage, FlatList, StyleSheet, Animated, Dimensions } from 'react-native'
 // import { MapView , Icon, } from 'expo'
-
-import {MapView, Marker} from 'react-native-maps'
+import MapView from 'react-native-maps'
+import { Marker} from 'react-native-maps'
 
 
 import firebase from 'react-native-firebase';
@@ -29,6 +29,7 @@ export default class collectionsTodayScreen extends React.Component {
       type:"current",
     }
     this.coordinates = [];
+    this.uniqueCollections = [];
   }
   static navigationOptions = {
     header: null,
@@ -58,6 +59,7 @@ export default class collectionsTodayScreen extends React.Component {
       pickup.infoRightCurrentOffset = new Animated.Value( pickup.infoRightCloseOffset );
       return pickup;
     });
+    this.uniqueCollections = collectionsToday;
     collectionsHistory = collectionsHistory.map((pickup)=>{
       pickup.infoLeftOpenOffset = (-1)*windowX*.1;
       pickup.infoRightOpenOffset = windowX*.1;
@@ -66,10 +68,23 @@ export default class collectionsTodayScreen extends React.Component {
       pickup.isOpen = false;
       pickup.infoLeftCurrentOffset = new Animated.Value( pickup.infoLeftCloseOffset );
       pickup.infoRightCurrentOffset = new Animated.Value( pickup.infoRightCloseOffset );
+
+      var duplicatePickupCount = 0;
+
+      this.uniqueCollections.reduce((duplicatePickupCount, u, i)=>{
+        if(u.pickupid == pickup.pickupId ) duplicatePickupCount++;
+        return duplicatePickupCount;
+      });
+      if(duplicatePickupCount == 0) this.uniqueCollections.push(pickup);
+
+      
+
       return pickup;
     });
     this.coordinates = [];
-    [...collectionsToday, ...collectionsHistory].forEach((pickup, index)=>{
+    
+
+    this.uniqueCollections.forEach((pickup, index)=>{
       this.coordinates.push({
         latitude: pickup.location.latitude,
         longitude: pickup.location.longitude,
@@ -193,152 +208,182 @@ export default class collectionsTodayScreen extends React.Component {
             <MonoText style={[{color:(this.state.type == "history")?"blue":"black"}]}>History</MonoText>
         </TouchableOpacity>
         </View>
-        <View style={styles.mapContainer}>
-          <MapView
-            style={styles.map}
-            ref={ref => { this.map = ref; }}
-            initialRegion={{
-              latitude: 14.61881,
-              longitude: 121.057171,
-              latitudeDelta: LATITUDE_DELTA,
-              longitudeDelta: LONGITUDE_DELTA,
-          }}>
-            {
-              [...this.state.collectionsToday, ...this.state.collectionsHistory].map((pickup,index)=>{
-                return(
-                  <Marker
-                    key={pickup.key}
-                    coordinate={{
-                      latitude: pickup.location.latitude,
-                      longitude: pickup.location.longitude,
-                    }}
-                    ref={ref => { pickup.markerRef = ref; }}
-                    title={pickup.pickupid}
-                    onCalloutPress={()=>{
-                      this.props.navigation.navigate('PickupDetail',{pickup:pickup});
-                    }}
-                  >
-                  </Marker>
-                )
-              })
-            }
-          </MapView>
-        </View>
-        <View style={styles.listContainer}>
-          <FlatList
-            data={(this.state.type=="current")?this.state.collectionsToday:this.state.collectionsHistory}
-            renderItem={({item}) => {
-              let statusColor = "white"
-              switch(item.status){
-                case "missed":{
-                  statusColor = "gray"
-                  break;
-                }
-                case "collected":{
-                  statusColor = "green"
-                  break;
-                }
-                default:{
-                  break;
-                }
-              }
-              return (
-              <View style={styles.itemContainer}>
-                <TouchableNativeFeedback
-                    onPress={()=>{
-                      this.onItemPress(item);
-                    }}
-                    background={TouchableNativeFeedback.SelectableBackground()}>
-                  <View style={styles.itemContentContainer}>
-                    <MonoText>{item.pickupid}</MonoText>
-                    <MonoText style={{fontSize: 9}}>{item.address}</MonoText>
-                    <MonoText style={{fontSize: 10}}>{
-                      (()=>{
-                        if( item.status == "collected") return "Collection: "+item.datetime;
-                        else if( item.status == "missed" ) return "Missed Collection: "+item.datetime;
-                        else return "- - -";
-                      })()
-                    }</MonoText>
-                  </View>
-                </TouchableNativeFeedback>
-                <Animated.View 
-                  style={[
-                      { 
-                        transform: [{ translateX: item.infoLeftCurrentOffset }] 
-                      },
-                      styles.itemInfoContainer,
-                      styles.itemLeftInfoContainer,
-                      {
-                        backgroundColor: statusColor
-                      },
-                    ]}
-                >
-                  <View style={{overflow:"hidden",flex:1,flexDirection:"row",alignItems: "center", alignContent: "space-between", elevation:2, backgroundColor:"white", margin:5,paddingRight: windowX*.1,paddingLeft: windowX*.1, borderRadius: 10}}>
-                    <MonoText>{item.status}</MonoText>
-                  </View>
-                </Animated.View>
-                <Animated.View 
-                  style={[
-                    { 
-                      transform: [{ translateX: item.infoRightCurrentOffset }] 
-                    },
-                    styles.itemInfoContainer,
-                    styles.itemRightInfoContainer,
-                    {
-                      backgroundColor: statusColor
-                    },
-                  ]}
-                >
-                  <View style={{flex:1,flexDirection:"row",alignItems: "center", alignContent: "space-between", elevation:2, backgroundColor:"white", margin:5,paddingLeft: windowX*.1, borderRadius: 10}}>
-                  <TouchableOpacity
-                    style={{
-                        borderWidth:1,
-                        borderColor:'rgba(0,0,0,0.2)',
-                        alignItems:'center',
-                        justifyContent:'center',
-                        width:30,
-                        height:30,
-                        backgroundColor:'#fff',
-                        borderRadius:30,
-                        elevation:2,
-                        marginLeft:5,
-                      }}
-                  >
-                    {/* <Icon.AntDesign
-                        name="message1"
-                        size={17}
-                      /> */}
-                  </TouchableOpacity>
+        
+        <ScrollView
+            style={styles.listContainer}
+            contentContainerStyle={{paddingBottom: 500,pointerEvents:"none"}}
+            // contentInset={{top: 0, left: 0, bottom: 500, right: 0}}
+            pointerEvents={'none'}
+            showsVerticalScrollIndicator={false}
+            scrollsToTop={true}
+            pagingEnabled={false}
+            overScrollMode={"always"}
+            pointerEvents={"none"}
+            // contentOffset={{y:-500}}
+            // onResponderGrant={()=>{console.log("flat list clicked")}}
+            // contentInset={{top: 0, left: 500, bottom: 500, right: 0}}
 
-                  <TouchableOpacity
-                    style={{
-                        borderWidth:1,
-                        borderColor:'rgba(0,0,0,0.2)',
-                        alignItems:'center',
-                        justifyContent:'center',
-                        width:30,
-                        height:30,
-                        backgroundColor:'#fff',
-                        borderRadius:30,
-                        elevation:2,
-                        marginHorizontal:5,
-                      }}
-                      onPress={()=>{
-                        this.props.navigation.navigate('PickupDetail',{pickup:item});
-                      }}
-                  >
-                    {/* <Icon.MaterialCommunityIcons
-                        name="information-outline"
-                        size={17}
-                      /> */}
-                  </TouchableOpacity>
-                  </View>
-                </Animated.View>
-              </View>)
-              }
-            }
-          />
-        </View>
+          >
+          <View style={{ width: "100%"}}>
+                {((this.state.type=="current")?this.state.collectionsToday:this.state.collectionsHistory)
+                .map((item, index)=>{
+                  
+                  let statusColor = "white";
+                  var bottomMargin = {};
+                  switch(item.status){
+                    case "missed":{
+                      statusColor = "gray"
+                      break;
+                    }
+                    case "collected":{
+                      statusColor = "green"
+                      break;
+                    }
+                    default:{
+                      break;
+                    }
+                  }
+                  return (
+                  <View
+                    key={item.key}
+                    style={[styles.itemContainer]}>
+                    <TouchableNativeFeedback
+                        onPress={()=>{
+                          this.onItemPress(item);
+                        }}
+                        background={TouchableNativeFeedback.SelectableBackground()}>
+                      <View style={styles.itemContentContainer}>
+                        <MonoText>{item.pickupid}</MonoText>
+                        <MonoText style={{fontSize: 9}}>{item.address}</MonoText>
+                        <MonoText style={{fontSize: 10}}>{
+                          (()=>{
+                            if( item.status == "collected") return "Collection: "+item.datetime;
+                            else if( item.status == "missed" ) return "Missed Collection: "+item.datetime;
+                            else return "- - -";
+                          })()
+                        }</MonoText>
+                      </View>
+                    </TouchableNativeFeedback>
+                    <Animated.View 
+                      style={[
+                          { 
+                            transform: [{ translateX: item.infoLeftCurrentOffset }] 
+                          },
+                          styles.itemInfoContainer,
+                          styles.itemLeftInfoContainer,
+                          {
+                            backgroundColor: statusColor
+                          },
+                        ]}
+                    >
+                      <View style={{overflow:"hidden",flex:1,flexDirection:"row",alignItems: "center", alignContent: "space-between", elevation:2, backgroundColor:"white", margin:5,paddingRight: windowX*.1,paddingLeft: windowX*.1, borderRadius: 10}}>
+                        <MonoText>{item.status}</MonoText>
+                      </View>
+                    </Animated.View>
+                    <Animated.View 
+                      style={[
+                        { 
+                          transform: [{ translateX: item.infoRightCurrentOffset }] 
+                        },
+                        styles.itemInfoContainer,
+                        styles.itemRightInfoContainer,
+                        {
+                          backgroundColor: statusColor
+                        },
+                      ]}
+                    >
+                      <View style={{flex:1,flexDirection:"row",alignItems: "center", alignContent: "space-between", elevation:2, backgroundColor:"white", margin:5,paddingLeft: windowX*.1, borderRadius: 10}}>
+                      <TouchableOpacity
+                        style={{
+                            borderWidth:1,
+                            borderColor:'rgba(0,0,0,0.2)',
+                            alignItems:'center',
+                            justifyContent:'center',
+                            width:30,
+                            height:30,
+                            backgroundColor:'#fff',
+                            borderRadius:30,
+                            elevation:2,
+                            marginLeft:5,
+                          }}
+                      >
+                      </TouchableOpacity>
+
+                      <TouchableOpacity
+                        style={{
+                            borderWidth:1,
+                            borderColor:'rgba(0,0,0,0.2)',
+                            alignItems:'center',
+                            justifyContent:'center',
+                            width:30,
+                            height:30,
+                            backgroundColor:'#fff',
+                            borderRadius:30,
+                            elevation:2,
+                            marginHorizontal:5,
+                          }}
+                          onPress={()=>{
+                            this.props.navigation.navigate('PickupDetail',{pickup:item});
+                          }}
+                      >
+                      </TouchableOpacity>
+                      </View>
+                    </Animated.View>
+                  </View>)
+                                    
+                })}
+                </View>
+          </ScrollView>
+
+        <MapView
+          style={styles.map}
+          ref={ref => { this.map = ref; }}
+          initialRegion={{
+            latitude: 14.61881,
+            longitude: 121.057171,
+            latitudeDelta: LATITUDE_DELTA,
+            longitudeDelta: LONGITUDE_DELTA,
+        }}>
+          {
+            this.uniqueCollections.map((pickup,index)=>{
+              return(
+                <Marker
+                  key={pickup.key}
+                  coordinate={{
+                    latitude: pickup.location.latitude,
+                    longitude: pickup.location.longitude,
+                  }}
+                  ref={ref => { pickup.markerRef = ref; }}
+                  title={pickup.pickupid}
+                  onCalloutPress={()=>{
+                    this.props.navigation.navigate('PickupDetail',{pickup:pickup});
+                  }}
+                >
+                </Marker>
+              )
+            })
+          }
+        </MapView>
+        {/* <View 
+          pointerEvents={"box-none"}
+          style={{
+            height: 300,
+            width: "100%",
+            backgroundColor: "white",
+            padding: 100,
+          
+          }}>
+          <View
+            style={{
+              backgroundColor: "green",
+              flex:1,
+
+            }}
+          >
+
+          </View>
+        </View> */}
+
       </View>
     );
   }
@@ -361,18 +406,16 @@ const styles = StyleSheet.create({
     //top:20,
     zIndex: 1000,
   },
-  mapContainer:{
-    flex:2,
-    zIndex:-1,
-  },
   map:{
-    flex:1,
-    zIndex:-1,
+    position:"absolute",
+    top:0,
+    bottom:0,
+    right:0,
+    left:0,
   },
   listContainer :{
-    flex:3,
-    elevation:10,
-    backgroundColor:"white",
+    flex:1,
+    zIndex: 1,
   },
   itemContainer :{
     height:80,

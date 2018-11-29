@@ -16,20 +16,10 @@ import {
 
 import firebase from 'react-native-firebase';
 
-NetInfo.getConnectionInfo().then((connectionInfo) => {
-  console.log('Initial, type: ' + connectionInfo.type + ', effectiveType: ' + connectionInfo.effectiveType);
-});
-function handleFirstConnectivityChange(connectionInfo) {
-  console.log('First change, type: ' + connectionInfo.type + ', effectiveType: ' + connectionInfo.effectiveType);
-  NetInfo.removeEventListener(
-    'connectionChange',
-    handleFirstConnectivityChange
-  );
+const screenName = "SignInScreen";
+const log = (message = "", data = {})=>{
+  console.log(screenName + " --> "+ message, data);
 }
-NetInfo.addEventListener(
-  'connectionChange',
-  handleFirstConnectivityChange
-);
 
 export default class SignInScreen extends React.Component {
   static navigationOptions = {
@@ -37,12 +27,14 @@ export default class SignInScreen extends React.Component {
   };
   constructor(props){
     super(props);
+    log("SignInScreen Start");
     this.state = {
       userId: '',
       password: '',
       userIdError: '',
       passwordError: '',
     }
+    
   }
   onInputChange = (input)=>{
     this.setState({
@@ -55,39 +47,31 @@ export default class SignInScreen extends React.Component {
     await AsyncStorage.setItem()
   }
   onSubmit = async ()=>{
+    log("clicked submit");
     let errorLabel = false;
     if(this.state.userId.length <= 0){
+      log("Username empty");
       errorLabel = true;
       this.setState({userIdError: 'This field is required'})
     }
     if(this.state.password.length <= 0){
+      log("Password empty");
       errorLabel = true;
       this.setState({passwordError: 'This field is required'})
     }
-    if(errorLabel) return false;
-    let Users = {}
-    console.log("before fetech")
+    if(errorLabel) {
+      log("Error detected from validation");
+      return false;
+    }
+    log("Get user by userId start", this.state.userId);
     try{
-      const granted = await PermissionsAndroid.request(
-        PermissionsAndroid.PERMISSIONS.INTERNET,
-        {
-          'title': 'Cool Photo App Camera Permission',
-          'message': 'Cool Photo App needs access to your camera ' +
-                     'so you can take awesome pictures.'
-        }
-      )
-      if (granted === PermissionsAndroid.RESULTS.GRANTED) {
-        console.log("You can use the camera")
-      } else {
-        console.log("Camera permission denied")
-      }
       Users = await firebase.firestore().collection('Users').where('userId','==',this.state.userId).get();
     }
     catch(e){
       console.log("fail fetch user");
     }
-    console.log("userId", this.state.userId);
-    console.log("number of results",Users.docs.length)
+    log("Get user end");
+    log("Number of match", Users.docs.length);
 
     if( !Users.docs.length ){
       return this.setState({
@@ -95,11 +79,20 @@ export default class SignInScreen extends React.Component {
       })
     }
     else if( Users.docs[0].data().password != this.state.password){
+      log("Error in validation detected");
       return this.setState({
         passwordError: 'User ID and Password does not match'
       })
     }
-    await AsyncStorage.setItem('user', JSON.stringify({ key: Users.docs[0].id, ...Users.docs[0].data() }) );
+    log("Save session data start");
+    try{
+      await AsyncStorage.setItem('user', JSON.stringify({ key: Users.docs[0].id, ...Users.docs[0].data() }) );
+    }
+    catch(e){
+      log("Save session failed", e)
+    }
+    log("Save session data end");
+    log("Redirecting to AuthLoading")
     this.props.navigation.navigate('AuthLoading');
   }
   render() {

@@ -142,6 +142,7 @@ configurations.all {
     }
 }
 dependencies {
+    implementation project(':react-native-svg')
 
     implementation project(':react-native-gesture-handler')
     implementation fileTree(dir: "libs", include: ["*.jar"])
@@ -176,5 +177,6 @@ task copyDownloadableDepsToLibs(type: Copy) {
 }
 
 apply plugin: 'com.google.gms.google-services'
+apply from: "../../node_modules/react-native-vector-icons/fonts.gradle"
 
 com.google.gms.googleservices.GoogleServicesPlugin.config.disableVersionCheck = true

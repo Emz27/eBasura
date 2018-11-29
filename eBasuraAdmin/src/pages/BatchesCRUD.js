@@ -7,6 +7,15 @@ import 'firebase/firestore';
 
 const GOOGLE_API_KEY = 'AIzaSyAKLNDKXRY5niSySOE8TIdz2yFgBmHyhjo';
 
+function isEmptyObject(obj) {
+  for(var prop in obj) {
+      if(obj.hasOwnProperty(prop))
+          return false;
+  }
+
+  return JSON.stringify(obj) === JSON.stringify({});
+}
+
 const params = {v: '3.exp', key: GOOGLE_API_KEY};
 export default class BatchesCRUD extends Component{
   constructor(){
@@ -52,6 +61,25 @@ export default class BatchesCRUD extends Component{
       var longitude = e.latLng.lng()
       var latlng = latitude +","+ longitude;
       var address = "";
+      
+
+      try{
+        let nearestRoadResponse = await (await fetch(`https://roads.googleapis.com/v1/nearestRoads?points=${latlng}&key=${GOOGLE_API_KEY}`)).json();
+        console.log("response", nearestRoadResponse);
+        if(isEmptyObject(nearestRoadResponse)){
+          return alert("Pickup must be near to any roads");
+        }
+        let loc = nearestRoadResponse.snappedPoints[0].location;
+        latitude = loc.latitude;
+        longitude = loc.longitude;
+        latlng = latitude + "," + longitude;
+      }
+      catch(e){
+        console.log(e);
+
+      }
+
+
       let response = await fetch(`https://maps.googleapis.com/maps/api/geocode/json?latlng=${latlng}&key=${GOOGLE_API_KEY}`);
       let responseJson = await response.json();
       if(responseJson.status === "OK"){
