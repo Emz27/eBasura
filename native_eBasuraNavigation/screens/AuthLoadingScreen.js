@@ -87,16 +87,22 @@ export default class AuthLoadingScreen extends React.Component {
     }
   }
   generatePaths(route){
-    var paths = []
+    var paths = [];
+    var pickupPaths = [];
     route.legs.forEach((leg)=>{
+      let legPoints = [];
       leg.steps.forEach((step)=>{
         decodedPolyline = polyline.decode(step.polyline.points );
+        let stepPoints = [];
         decodedPolyline.forEach((item)=>{
-          paths = [...paths, { latitude: item[0], longitude: item[1] }];
+          stepPoints = [...stepPoints, { latitude: item[0], longitude: item[1] }];
         })
-      })
+        legPoints = [...legPoints, ...stepPoints];
+      });
+      paths = [...paths, ...legPoints];
+      pickupPaths.push(legPoints);
     })
-    return paths;
+    return {pickupPaths, paths};
   }
   async getDirection( destinationLatLng, waypointsLatLng){
     console.log("google api get directions start");
@@ -262,13 +268,16 @@ export default class AuthLoadingScreen extends React.Component {
     var waypoints = pendingCollections.map( item => { return {latitude: item.location.latitude, longitude: item.location.longitude}} );
     route = await this.getDirection(destination, waypoints);
     this.paths = [];
+    this.pickupPaths = [];
     if(route != false) {
       console.log("Retrieved atleast one route", route);
       // arrange 
       pendingCollections = route.waypoint_order.map((item, index)=>{
         return pendingCollections[item];
       })
-      this.paths = this.generatePaths(route);
+      var r = this.generatePaths(route);
+      this.paths = r.paths;
+      this.pickupPaths = r.pickupPaths;
     }
 
     console.log("Save data start")
@@ -278,6 +287,7 @@ export default class AuthLoadingScreen extends React.Component {
       await AsyncStorage.setItem('collectionsHistory',  JSON.stringify(collectionsHistory));
       await AsyncStorage.setItem('route',  JSON.stringify(route));
       await AsyncStorage.setItem('paths',  JSON.stringify(this.paths));
+      await AsyncStorage.setItem('pickupPaths',  JSON.stringify(this.pickupPaths));
       await AsyncStorage.setItem('collectedCollections',  JSON.stringify(collectedCollections));
       await AsyncStorage.setItem('pendingCollections',  JSON.stringify(pendingCollections));
       await AsyncStorage.setItem('skippedCollections',  JSON.stringify(skippedCollections));
