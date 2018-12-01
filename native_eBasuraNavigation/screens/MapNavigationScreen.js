@@ -33,6 +33,10 @@ const ASPECT_RATIO = width / height
 const LATITUDE_DELTA = 0.008
 const LONGITUDE_DELTA = LATITUDE_DELTA * ASPECT_RATIO
 
+const METERS_TO_NOTIFY = 20;
+const METERS_TO_REACH = 20;
+const PATH_DIVISION_RATIO = 3
+
 getCurrentPosition = (options = {}) => {
   return new Promise((resolve, reject) => {
     navigator.geolocation.getCurrentPosition(resolve, reject, options);
@@ -78,7 +82,21 @@ createPickupMarker = ({collections, isShowNumber, textColor, fillColor, borderCo
     )
   })
 }
+var rad = function(x) {
+  return x * Math.PI / 180;
+};
 
+var getDistance = function(p1, p2) {
+  var R = 6378137; // Earth’s mean radius in meter
+  var dLat = rad(p2.latitude - p1.latitude);
+  var dLong = rad(p2.longitude - p1.longitude);
+  var a = Math.sin(dLat / 2) * Math.sin(dLat / 2) +
+    Math.cos(rad(p1.latitude)) * Math.cos(rad(p2.latitude)) *
+    Math.sin(dLong / 2) * Math.sin(dLong / 2);
+  var c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
+  var d = R * c;
+  return d; // returns the distance in meter
+};
 
 export default class MapNavigationScreen extends React.Component {
   static navigationOptions = {
@@ -96,6 +114,22 @@ export default class MapNavigationScreen extends React.Component {
       collectedCollections: [],
       route: {legs:[]},
       paths: [],
+      pickupPaths: [],
+      isMockLocation: true,
+      isReachedPickup: false,
+      isNotified: false,
+      currentLocation: {
+        latitude:"",
+        longitude: "",
+      },
+      pickupLocation: {
+        latitude:"",
+        longitude: "",
+      },
+      notificationLocation: {
+        latitude:"",
+        longitude: "",
+      }
     };
     
   }
@@ -103,17 +137,32 @@ export default class MapNavigationScreen extends React.Component {
     var pendingCollections = [...pendingCollections];
     var destination = dumpsiteLocation;
     var waypoints = pendingCollections.map( item => { return {latitude: item.location.latitude, longitude: item.location.longitude}} );
-    var route = await this.getDirection(destination, waypoints);
+    var route = await this.getDirection( destination, waypoints);
     var paths = [];
+    var pickupPaths = [];
+    var pickupLocation = {};
+    var notificationLocation = {};
     if( route != false ){
       console.log("Retrieved atleast one route", route);
       // arrange 
       pendingCollections = route.waypoint_order.map((item, index)=>{
         return pendingCollections[item];
       })
-      paths = this.generatePaths(route);
+      var r = this.generatePaths(route);
+      paths = r.paths;
+      pickupPaths = r.pickupPaths;
+      let targetLocation = this.getTargetLocation(pickupPaths);
+      pickupLocation = targetLocation.pickupLocation;
+      notificationLocation = targetLocation.notificationLocation;
     }
-    this.setState({ pendingCollections, paths },()=>{
+    this.setState({ 
+      pendingCollections, 
+      paths, 
+      pickupPaths,
+      pickupLocation,
+      notificationLocation
+    },
+    ()=>{
       this.map.fitToCoordinates(paths, {
         edgePadding: { top: 10, right: 10, bottom: 10, left: 10 },
         animated: true,
@@ -121,16 +170,22 @@ export default class MapNavigationScreen extends React.Component {
     });
   }
   generatePaths(route){
-    var paths = []
+    var paths = [];
+    var pickupPaths = [];
     route.legs.forEach((leg)=>{
+      let legPoints = [];
       leg.steps.forEach((step)=>{
         decodedPolyline = polyline.decode(step.polyline.points );
+        let stepPoints = [];
         decodedPolyline.forEach((item)=>{
-          paths = [...paths, { latitude: item[0], longitude: item[1] }];
+          stepPoints = [...stepPoints, { latitude: item[0], longitude: item[1] }];
         })
-      })
+        legPoints = [...legPoints, ...stepPoints];
+      });
+      paths = [...paths, ...legPoints];
+      pickupPaths.push(legPoints);
     })
-    return paths;
+    return {pickupPaths, paths};
   }
   async getDirection( destinationLatLng, waypointsLatLng){
     console.log("google api get directions start");
@@ -140,13 +195,20 @@ export default class MapNavigationScreen extends React.Component {
         longitude: 121.057171,
       }
     }
-    console.log("geolocation start");
-    try{
-      pos = await getCurrentPosition();
+    if(this.state.isMockLocation && this.state.currentLocation.latitude != ""){
+      pos.coords.latitude = this.state.currentLocation.latitude;
+      pos.coords.longitude = this.state.currentLocation.longitude;
     }
-    catch(e){
-      console.log("Fail to get device location ", e)
+    else{
+      console.log("geolocation start");
+      try{
+        pos = await getCurrentPosition();
+      }
+      catch(e){
+        console.log("Fail to get device location ", e)
+      }
     }
+    
     var origin = pos.coords.latitude+","+pos.coords.longitude;
     var destination = destinationLatLng.latitude+","+destinationLatLng.longitude;
     var waypoints = waypointsLatLng.map( item => item.latitude+','+item.longitude ).join('|');
@@ -167,6 +229,42 @@ export default class MapNavigationScreen extends React.Component {
     console.log("Get directions finished", responseJson);
     return false;
   }
+  getTargetLocation(pickupPaths){
+    let pickupLocation = {};
+    let notificationLocation = {};
+    try{
+      let firstPath = pickupPaths[0];
+      let count = firstPath.length;
+      let notificationIndex = (count) - Math.round(count / PATH_DIVISION_RATIO);
+      pickupLocation = firstPath[count-1];
+      notificationLocation = firstPath[notificationIndex]; 
+    }
+    catch(e){
+      console.log(e);
+    }
+    return {pickupLocation, notificationLocation};
+  }
+  async setCollectorPosition(collectorPos){
+    let state = {
+      currentLocation: collectorPos,
+    }
+    if( !this.state.isReachedPickup && !this.state.isNotified && getDistance(collectorPos, this.state.notificationLocation) < METERS_TO_NOTIFY ){
+      //state.isNotified = true;
+      var result = false;
+      try{
+        var origin = collectorPos.latitude+","+collectorPos.longitude;
+        var destination = this.state.pickupLocation.latitude + "," + this.state.pickupLocation.longitude;
+        result = await fetch(`https://maps.googleapis.com/maps/api/distancematrix/json?units=imperial&origins=${origin}&destinations=${destination}&key=${GOOGLE_API_KEY}`);
+        result = await result.json();
+        console.log("notify");
+      }catch(e){ console.log(e) }
+    }
+    else if( !this.state.isReachedPickup && getDistance(collectorPos, this.state.pickupLocation) < METERS_TO_REACH ){
+      //state.isReachedPickup = true;
+      console.log("reached")
+    }
+    this.setState(state);
+  }
   async loadData(){
     console.log("Load Data start");
     try{
@@ -180,18 +278,25 @@ export default class MapNavigationScreen extends React.Component {
 
       let route = JSON.parse(await AsyncStorage.getItem("route"));
       let paths = JSON.parse(await AsyncStorage.getItem("paths"));
+      let pickupPaths = JSON.parse(await AsyncStorage.getItem("pickupPaths"));
       this.map.fitToCoordinates(paths, {
         edgePadding: { top: 10, right: 10, bottom: 10, left: 10 },
         animated: true,
       });
+      let targetLocation = this.getTargetLocation(pickupPaths);
+      let pickupLocation = targetLocation.pickupLocation;
+      let notificationLocation = targetLocation.notificationLocation;
       this.setState({
         collectionsToday,
         collectionsHistory,
         pendingCollections,
         collectedCollections,
         skippedCollections,
-        route: route,
-        paths: paths,
+        route,
+        paths,
+        pickupPaths,
+        pickupLocation,
+        notificationLocation,
       })
     }
     catch(e){
@@ -229,6 +334,34 @@ export default class MapNavigationScreen extends React.Component {
       fillColor: Colors.red, 
       borderColor: Colors.purple,
     });
+    var notificationMarker = ()=>{
+      if( this.state.notificationLocation.latitude != ""){
+        return (
+          <Marker
+            flat={false}
+            coordinate={{
+              latitude: this.state.notificationLocation.latitude,
+              longitude: this.state.notificationLocation.longitude,
+            }}
+          />
+        )
+      }
+      return null;
+    }
+    var collectorMarker = () =>{
+      if( this.state.isMockLocation && this.state.currentLocation.latitude != "" ){
+        return (
+          <Marker
+            flat={false}
+            coordinate={{
+              latitude: this.state.currentLocation.latitude,
+              longitude: this.state.currentLocation.longitude,
+            }}
+          />
+        )
+      }
+      return null;
+    }
 
     return (
       <View style={styles.container}>
@@ -257,6 +390,11 @@ export default class MapNavigationScreen extends React.Component {
           onLayout={async ()=>{
             await this.loadData();
           }}
+          onPress={(event)=>{
+            if(this.state.isMockLocation){
+              this.setCollectorPosition(event.nativeEvent.coordinate);
+            }
+          }}
         >
             <Polyline 
               coordinates={this.state.paths}
@@ -268,6 +406,8 @@ export default class MapNavigationScreen extends React.Component {
           { pendingCollectionsMarker }
           { collectedCollectionsMarker }
           { skippedCollectionsMarker }
+          { notificationMarker() }
+          { collectorMarker() }
         </MapView>
       </View>
     );
