@@ -13,7 +13,7 @@ import {
 import firebase from 'react-native-firebase';
 import moment from 'moment';
 
-var polyline = require( 'google-polyline' );
+import polyline from 'google-polyline';
 
 getCurrentPosition = (options = {}) => {
   return new Promise((resolve, reject) => {
@@ -21,11 +21,10 @@ getCurrentPosition = (options = {}) => {
   });
 };
 
-// const screenName = "AuthLoadingScreen";
-// const log = (message = "", data = {})=>{
-//   console.console.log(screenName + " --> "+ message, data);
-// }
-
+const dumpsiteLocation = {
+  latitude: 14.7181,
+  longitude: 121.1042,
+}
 const GOOGLE_API_KEY = 'AIzaSyAKLNDKXRY5niSySOE8TIdz2yFgBmHyhjo';
 
 export default class AuthLoadingScreen extends React.Component {
@@ -40,16 +39,10 @@ export default class AuthLoadingScreen extends React.Component {
     }
   }
   async componentWillMount() {
-    // if (Platform.OS === 'android' && !Constants.isDevice) {
-    // } 
-    // else {
-    //   let { status } = await Permissions.askAsync(Permissions.LOCATION);
-    //   if (status !== 'granted') {
-    //   }
-    // }
+
   }
   // Fetch the token from storage then navigate to our appropriate place
-  _bootstrapAsync = async () => {
+  async _bootstrapAsync(){
     //await AsyncStorage.clear();
     const { navigate } = this.props.navigation;
     console.log("AsyncStorage get User");
@@ -92,11 +85,61 @@ export default class AuthLoadingScreen extends React.Component {
       console.log("Session removed, redirecting to SignIn")
       return navigate('SignIn');
     }
-  };
-  loadData = async ()=>{
+  }
+  generatePaths(route){
+    var paths = []
+    route.legs.forEach((leg)=>{
+      leg.steps.forEach((step)=>{
+        decodedPolyline = polyline.decode(step.polyline.points );
+        decodedPolyline.forEach((item)=>{
+          paths = [...paths, { latitude: item[0], longitude: item[1] }];
+        })
+      })
+    })
+    return paths;
+  }
+  async getDirection( destinationLatLng, waypointsLatLng){
+    console.log("google api get directions start");
+    let pos = {
+      coords: {
+        latitude: 14.61881,
+        longitude: 121.057171,
+      }
+    }
+    console.log("geolocation start");
+    try{
+      pos = await getCurrentPosition();
+    }
+    catch(e){
+      console.log("Fail to get device location ", e)
+    }
+    var origin = pos.coords.latitude+","+pos.coords.longitude;
+    var destination = destinationLatLng.latitude+","+destinationLatLng.longitude;
+    var waypoints = waypointsLatLng.map( item => item.latitude+','+item.longitude ).join('|');
+    let route = {};
+    let response = {};
+    let responseJson = {};
+    try{
+      response = await fetch(`https://maps.googleapis.com/maps/api/directions/json?origin=${origin}&destination=${destination}&waypoints=optimize:true|${waypoints}&key=${GOOGLE_API_KEY}`);
+      responseJson = await response.json();
+      if(responseJson.status == "OK"){
+        route = responseJson.routes[0];
+        return route;
+      } 
+    }
+    catch(e){
+      console.log("Get directions failed", e);
+    }
+    console.log("Get directions finished", responseJson);
+    return false;
+  }
+  async loadData(){
     console.log("Load Data Start");
     let collectionsToday = [];
     let collectionsHistory = [];
+    var collectedCollections =[];
+    var pendingCollections = [];
+    var skippedCollections = [];
     console.log("Get collections by userId ", this.user.userId);
     let collections = {};
     try{
@@ -108,8 +151,10 @@ export default class AuthLoadingScreen extends React.Component {
       console.log("Get collections failed", e);
     }
     console.log("fetch successful", collections);
-    var collectionsTodayIndex = 1;
-    var collectionsHistoryIndex = 1;
+    var collectionsHistoryOrder = 1;
+    var collectedCollectionsOrder = 1;
+    var pendingCollectionsOrder = 1;
+    var skippedCollectionsOrder = 1;
     collections.docs.forEach((doc)=>{
       let currentDate = new Date();
       let collectionDate = new Date(doc.data().dateTime);
@@ -128,14 +173,28 @@ export default class AuthLoadingScreen extends React.Component {
         collectors: data.collectors,
       }
       if(moment(currentDate).isSame(collectionDate,'day')){
-        col.order = collectionsTodayIndex;
+        
+        if(col.status == "pending"){
+          col.order = pendingCollectionsOrder;
+          pendingCollections.push(col);
+          pendingCollectionsOrder++;
+        }
+        else if(col.status == "collected"){
+          col.order = collectedCollectionsOrder;
+          collectedCollections.push(col);
+          collectedCollectionsOrder++;
+        }
+        else{
+          col.order = skippedCollectionsOrder;
+          skippedCollections.push(col);
+          skippedCollectionsOrder++;
+        }
         collectionsToday.push(col);
-        collectionsTodayIndex++;
       }
       else{
-        col.order = collectionsHistoryIndex;
+        col.order = collectionsHistoryOrder;
         collectionsHistory.push(col);
-        collectionsHistoryIndex++;
+        collectionsHistoryOrder++;
       }
     });
 
@@ -194,70 +253,34 @@ export default class AuthLoadingScreen extends React.Component {
     }
     console.log("collectionsToday"+collectionsToday);
     console.log("collectionsHistory"+collectionsHistory);
-    let pos = {
-      coords: {
-        latitude: 14.61881,
-        longitude: 121.057171,
-      }
-    }
-    console.log("geolocation start");
-    try{
-      pos = await getCurrentPosition();
-    }
-    catch(e){
-      console.log("Fail to get device location ", e)
-    }
-    console.log("geolocation end", pos);
-  
-    origin = pos.coords.latitude+","+pos.coords.longitude;
+    
 
-    let destination = origin;
-    let waypoints = collectionsToday.map( item => item.location.latitude+','+item.location.longitude ).join('|');
-    console.log("origin coords", origin);
-    console.log("waypoints coords", waypoints);
-    console.log("google api get directions start");
-    let response = {};
-    let responseJson = {};
-    try{
-      response = await fetch(`https://maps.googleapis.com/maps/api/directions/json?origin=${origin}&destination=${destination}&waypoints=optimize:true|${waypoints}&key=${GOOGLE_API_KEY}`);
-      responseJson = await response.json();
-    }
-    catch(e){
-      console.log("Get directions failed", e);
-    }
-    console.log("Get directions finished", responseJson);
+
     let route = {}
-    if(responseJson.status === "OK") {
-      console.log("Retrieved atleast one route", responseJson.routes[0]);
-      route = responseJson.routes[0];
-      // arrange 
-      collectionsToday = route.waypoint_order.map((item, index)=>{
-        return collectionsToday[item];
-      })
-    }
-    this.coordinates = [];
+    var destination = dumpsiteLocation;
+    console.log("waypoints coords", waypoints);
+    var waypoints = pendingCollections.map( item => { return {latitude: item.location.latitude, longitude: item.location.longitude}} );
+    route = await this.getDirection(destination, waypoints);
     this.paths = [];
-    console.log("Route legs", route.legs);
-    route.legs.forEach((leg)=>{
-      leg.steps.forEach((step)=>{
-        let startLatLng = {latitude: step.start_location.lat, longitude: step.start_location.lng};
-        let endLatLng = {latitude: step.end_location.lat, longitude: step.end_location.lng}
-        this.coordinates.push(startLatLng);
-        this.coordinates.push(endLatLng);
-        decodedPolyline = polyline.decode(step.polyline.points );
-        decodedPolyline.forEach((item)=>{
-          this.paths = [...this.paths, { latitude: item[0], longitude: item[1] }];
-        })
+    if(route != false) {
+      console.log("Retrieved atleast one route", route);
+      // arrange 
+      pendingCollections = route.waypoint_order.map((item, index)=>{
+        return pendingCollections[item];
       })
-    })
+      this.paths = this.generatePaths(route);
+    }
+
     console.log("Save data start")
     try{
       await AsyncStorage.setItem('user', JSON.stringify(this.user));
       await AsyncStorage.setItem('collectionsToday',  JSON.stringify(collectionsToday));
       await AsyncStorage.setItem('collectionsHistory',  JSON.stringify(collectionsHistory));
       await AsyncStorage.setItem('route',  JSON.stringify(route));
-      await AsyncStorage.setItem('coordinates',  JSON.stringify(this.coordinates));
       await AsyncStorage.setItem('paths',  JSON.stringify(this.paths));
+      await AsyncStorage.setItem('collectedCollections',  JSON.stringify(collectedCollections));
+      await AsyncStorage.setItem('pendingCollections',  JSON.stringify(pendingCollections));
+      await AsyncStorage.setItem('skippedCollections',  JSON.stringify(skippedCollections));
     }
     catch(e){
       console.log("");
