@@ -159,21 +159,6 @@ class Navigator extends React.Component{
         Animated.parallel(anims,{ stopTogether: false, useNativeDriver: true}).start()
       });
     }
-    handleNavigatorPressIn = (button)=>{
-      // if(button == this.state.currentScreen) return false;
-      // var scale = (button == "MapNavigation")?this.mapNavigationButtonScale: this.pickupLocationButtonScale;
-      this.state.navigatorRef._navigation.navigate(button);
-      // Animated.spring(scale,{toValue: .7, useNativeDriver: true}).start();
-    }
-
-
-    handleNavigatorPressOut = (button)=>{
-      // if(button == this.state.currentScreen) return false;
-      
-      // var scale = (button == "MapNavigation")?this.mapNavigationButtonScale: this.pickupLocationButtonScale;
-      // Animated.spring(scale,{toValue: 1,friction: 3,tension: 40, useNativeDriver: true}).start();
-    }
-
     activateNavigatorButton = (button)=>{
       if(!["MapNavigation", "PickupLocations"].includes(button)) return false;
       var scale1 = (button == "MapNavigation")?this.mapNavigationButtonScale: this.pickupLocationButtonScale;
@@ -247,6 +232,13 @@ class Navigator extends React.Component{
               <Animated.View
                 style={[styles.signOutButton, {translateX: this.signOutButtonTranslateX}]}>
                 <TouchableNativeFeedback
+                    onPress={async ()=>{
+                      try{
+                        await AsyncStorage.clear();
+                        this.state.navigatorRef._navigation.navigate("PickupLocations");
+                      }
+                      catch(e){ console.log(e) }
+                    }}
                     background={TouchableNativeFeedback.SelectableBackgroundBorderless()}
                   >
                   <View
@@ -293,8 +285,7 @@ class Navigator extends React.Component{
               <Animated.View
                 style={[styles.PickupLocationButton, {transform:[{translateX: this.pickupLocationButtonTranslateX},{translateY: this.pickupLocationButtonTranslateY},{scale: this.pickupLocationButtonScale}]}]}>
                 <TouchableNativeFeedback
-                    onPressIn={()=>this.handleNavigatorPressIn("PickupLocations")}
-                    onPressOut={()=>this.handleNavigatorPressOut("PickupLocations")}
+                    onPress={()=>this.state.navigatorRef._navigation.navigate("PickupLocations")}
                     background={TouchableNativeFeedback.SelectableBackgroundBorderless()}
                   >
                   <View
@@ -305,8 +296,7 @@ class Navigator extends React.Component{
               <Animated.View
                 style={[styles.mapNavigationButton, {transform:[{translateX: this.mapNavigationButtonTranslateX}, {scale: this.mapNavigationButtonScale}]}]}>
                 <TouchableNativeFeedback
-                    onPressIn={()=>this.handleNavigatorPressIn("MapNavigation")}
-                    onPressOut={()=>this.handleNavigatorPressOut("MapNavigation")}
+                onPress={()=>this.state.navigatorRef._navigation.navigate("MapNavigation")}
                     background={TouchableNativeFeedback.SelectableBackgroundBorderless()}
                   >
                   <View
