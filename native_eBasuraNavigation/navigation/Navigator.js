@@ -7,11 +7,21 @@ import {
     StyleSheet,
     Animated,
     Alert,
+    StatusBar,
+    AsyncStorage,
 } from 'react-native'
 import AppNavigator from './AppNavigator.js';
 import Svg ,{Circle} from 'react-native-svg';
 import Colors from './../constants/Colors.js';
 
+import SimpleLineIcons from 'react-native-vector-icons/SimpleLineIcons';
+import MaterialCommunityIcons from 'react-native-vector-icons/MaterialCommunityIcons';
+import FontAwesome5 from 'react-native-vector-icons/FontAwesome5';
+const OptionIcon = (<SimpleLineIcons name="options" size={30} color="white" />)
+const MapIcon = (<FontAwesome5 name="route" size={20} color="white" />)
+const UserIcon = (<FontAwesome5 name="users-cog" size={20} color="white" />)
+const PickupIcon = (<MaterialCommunityIcons name="map-marker-radius" size={20} color="white" />)
+const SignoutIcon = (<FontAwesome5 name="sign-out-alt" size={20} color="white" />)
 
 function getActiveRouteName(navigationState) {
   if (!navigationState) {
@@ -38,6 +48,7 @@ class Navigator extends React.Component{
       this.closeTranslate = 120;
       this.currentScale = new Animated.Value(this.closeScale);
       this.currentTranslate = new Animated.Value(this.closeTranslate);
+
       this.mapNavigationButtonScale = new Animated.Value(1);  
       this.pickupLocationButtonScale = new Animated.Value(1);
 
@@ -53,7 +64,7 @@ class Navigator extends React.Component{
       this.nameButtonTranslateX = new Animated.Value(200);
       this.signOutButtonTranslateX = new Animated.Value(200);
       this.userButtonScale = new Animated.Value(1);
-
+      this.userName = "";
       
       this.state =  {
         isNavigatorOpen: false,
@@ -64,6 +75,15 @@ class Navigator extends React.Component{
         isLogged: false,
         navigatorRef: {}
       };
+    }
+    loadUser = async ()=>{
+      try{  
+        this.user = JSON.parse(await AsyncStorage.getItem('user'));
+        this.setState({ userId: this.user.userId })
+      }
+      catch(e){
+        console.log(e);
+      }
     }
     componentDidMount(){
 
@@ -106,7 +126,7 @@ class Navigator extends React.Component{
       );
       this.setState({
         isNavigatorOpen: !this.state.isNavigatorOpen,
-        isUserOpen: (this.state.isUserOpen)?false:true,
+        isUserOpen: false,
       },()=>
         Animated.parallel(anims,{stopTogether:true, useNativeDriver: true}).start()
       )
@@ -140,18 +160,18 @@ class Navigator extends React.Component{
       });
     }
     handleNavigatorPressIn = (button)=>{
-      if(button == this.state.currentScreen) return false;
-      var scale = (button == "MapNavigation")?this.mapNavigationButtonScale: this.pickupLocationButtonScale;
+      // if(button == this.state.currentScreen) return false;
+      // var scale = (button == "MapNavigation")?this.mapNavigationButtonScale: this.pickupLocationButtonScale;
       this.state.navigatorRef._navigation.navigate(button);
-      Animated.spring(scale,{toValue: .7, useNativeDriver: true}).start();
+      // Animated.spring(scale,{toValue: .7, useNativeDriver: true}).start();
     }
 
 
     handleNavigatorPressOut = (button)=>{
-      if(button == this.state.currentScreen) return false;
+      // if(button == this.state.currentScreen) return false;
       
-      var scale = (button == "MapNavigation")?this.mapNavigationButtonScale: this.pickupLocationButtonScale;
-      Animated.spring(scale,{toValue: 1,friction: 3,tension: 40, useNativeDriver: true}).start();
+      // var scale = (button == "MapNavigation")?this.mapNavigationButtonScale: this.pickupLocationButtonScale;
+      // Animated.spring(scale,{toValue: 1,friction: 3,tension: 40, useNativeDriver: true}).start();
     }
 
     activateNavigatorButton = (button)=>{
@@ -182,7 +202,10 @@ class Navigator extends React.Component{
                 console.log("screen changed", currentScreen);
                 var isLogged = false;
                 if(["AuthLoading","SignIn"].includes(currentScreen)) isLogged = false;
-                else isLogged = true;
+                else {
+                  this.loadUser();
+                  isLogged = true;
+                } 
                 this.activateNavigatorButton(currentScreen);
                 this.setState({ isLogged, currentScreen });
               }
@@ -199,6 +222,12 @@ class Navigator extends React.Component{
           {
             (this.state.isRefRetrieved && this.state.isLogged)
             ?<View style={styles.container}>
+              <StatusBar
+                backgroundColor={Colors.purpleDark}
+              />
+              <View style={styles.header}></View>
+              <View style={styles.footer}>
+              </View>
               <Animated.View
                 style={[styles.nameButton,{translateX: this.nameButtonTranslateX}]}>
                 <TouchableNativeFeedback
@@ -212,7 +241,7 @@ class Navigator extends React.Component{
                       justifyContent:"center",
                       alignItems: "center",
                     }]}
-                  ><Text>User Name</Text></View>
+                  ><Text style={{color:"white"}}>{ this.state.userId }</Text></View>
                   </TouchableNativeFeedback>
               </Animated.View>
               <Animated.View
@@ -224,11 +253,11 @@ class Navigator extends React.Component{
                     style={[{
                       height:150,
                       width:150,
-                      flex:1,
                       justifyContent:"center",
-                      alignItems: "center",
+                      marginLeft: 20,
+                      flex:1,
                     }]}
-                  ><Text>Signout</Text></View>
+                  >{ SignoutIcon }</View>
                   </TouchableNativeFeedback>
               </Animated.View>
               <Animated.View
@@ -246,7 +275,7 @@ class Navigator extends React.Component{
                       justifyContent:"center",
                       alignItems: "center",
                     }]}
-                  ><Text>helloooo</Text></View>
+                  >{ OptionIcon }</View>
                   </TouchableNativeFeedback>
               </Animated.View>
               <Animated.View
@@ -258,7 +287,7 @@ class Navigator extends React.Component{
                   >
                   <View
                     style={smallView}
-                  ><Text>User</Text></View>
+                  >{ UserIcon }</View>
                   </TouchableNativeFeedback>
               </Animated.View>
               <Animated.View
@@ -270,7 +299,7 @@ class Navigator extends React.Component{
                   >
                   <View
                     style={smallView}
-                  ><Text>Pickup</Text></View>
+                  >{ PickupIcon }</View>
                   </TouchableNativeFeedback>
               </Animated.View>
               <Animated.View
@@ -282,7 +311,7 @@ class Navigator extends React.Component{
                   >
                   <View
                     style={smallView}
-                  ><Text>Map</Text></View>
+                  >{ MapIcon }</View>
                   </TouchableNativeFeedback>
               </Animated.View>
             </View>
@@ -298,7 +327,7 @@ const smallButton = {
   position:"absolute",
   borderRadius:smallSize,
   zIndex:1000,
-  backgroundColor:Colors.primary,
+  backgroundColor:Colors.purpleDark,
   elevation:10
 }
 const smallView = {
@@ -314,13 +343,28 @@ const styles = StyleSheet.create({
     width:"100%",
     position: "absolute",
   },
+  header:{
+    position:"absolute",
+    top: 0,
+    height: 40,
+    width: "100%",
+    backgroundColor: Colors.purple
+
+  },
+  footer:{
+    position:"absolute",
+    bottom: 0,
+    height: 40,
+    width: "100%",
+    backgroundColor: Colors.purple
+  },
   mainActionButton:{
     position:"absolute",
     borderRadius:150,
     bottom:-50,
     right:-50,
     zIndex:5000,
-    backgroundColor:Colors.primary,
+    backgroundColor:Colors.purpleDark,
     elevation:10
   },
   UserButton:{
@@ -347,7 +391,7 @@ const styles = StyleSheet.create({
     borderTopStartRadius:50,
     borderBottomStartRadius: 50,
     zIndex: 5000,
-    backgroundColor: Colors.primary,
+    backgroundColor: Colors.purple,
     elevation: 5,
   },
   nameButton:{
@@ -359,7 +403,7 @@ const styles = StyleSheet.create({
     borderTopStartRadius:50,
     borderBottomStartRadius: 50,
     zIndex: 5000,
-    backgroundColor: Colors.primary,
+    backgroundColor: Colors.purple,
     elevation: 5,
   },
 })

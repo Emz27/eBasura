@@ -393,6 +393,8 @@ export default class collectionsTodayScreen extends React.Component {
 const styles = StyleSheet.create({
   container:{
     flex:1,
+    marginTop: 40,
+    marginBottom: 40,
     backgroundColor:"white",
   },
   headerContainer:{
