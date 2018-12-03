@@ -74,6 +74,22 @@ export default class AuthLoadingScreen extends React.Component {
     console.log("get user success", userData);
     if ( userData.docs.length ){
       this.user = { key: userData.docs[0].id, ...userData.docs[0].data() };
+
+      let pushToken = "";
+      const enabled = await firebase.messaging().hasPermission();
+      if (enabled) {
+        pushToken = await firebase.messaging().getToken();
+      } 
+      else {
+        await firebase.messaging().requestPermissions();
+        pushToken = await firebase.messaging().getToken();
+      }
+      try{
+        let res = firebase.firestore().collection("Users").doc(this.user.key).update({ pushToken: pushToken });
+      }
+      catch(e){ console.log(e) }
+
+      console.log(token);
       console.log("Load Data");
       await this.loadData();
       console.log("Load Data Suceessful, redirecting to MainPage");
