@@ -17,6 +17,8 @@ import Colors from './../constants/Colors.js';
 import SimpleLineIcons from 'react-native-vector-icons/SimpleLineIcons';
 import MaterialCommunityIcons from 'react-native-vector-icons/MaterialCommunityIcons';
 import FontAwesome5 from 'react-native-vector-icons/FontAwesome5';
+import firebase from 'react-native-firebase';
+
 const OptionIcon = (<SimpleLineIcons name="options" size={30} color="white" />)
 const MapIcon = (<FontAwesome5 name="route" size={20} color="white" />)
 const UserIcon = (<FontAwesome5 name="users-cog" size={20} color="white" />)
@@ -235,7 +237,8 @@ class Navigator extends React.Component{
                     onPress={async ()=>{
                       try{
                         await AsyncStorage.clear();
-                        this.state.navigatorRef._navigation.navigate("PickupLocations");
+                        await firebase.firestore().collection("Users").doc(this.user.key).update({ pushToken: "" });
+                        this.state.navigatorRef._navigation.navigate("SignIn");
                       }
                       catch(e){ console.log(e) }
                     }}
