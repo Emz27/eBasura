@@ -10,9 +10,10 @@ import {
   Alert,
   FlatList,
   Text,
+  ActivityIndicator,
 } from 'react-native';
 
-import MapView from 'react-native-maps'
+import MapView, { Callout } from 'react-native-maps'
 import {Marker, Polyline} from 'react-native-maps'
 
 import Svg, {Circle,Text as SText,TSpan} from 'react-native-svg';
@@ -20,6 +21,11 @@ import Svg, {Circle,Text as SText,TSpan} from 'react-native-svg';
 import Colors from './../constants/Colors.js';
 
 import polyline from 'google-polyline';
+import firebase from 'react-native-firebase';
+
+import Ionicons from 'react-native-vector-icons/Ionicons';
+
+const CheckIcon = (<Ionicons name="ios-checkmark" size={20} color={Colors.purple} />)
 
 const dumpsiteLocation = {
   latitude: 14.7181,
@@ -43,45 +49,7 @@ getCurrentPosition = (options = {}) => {
   });
 };
 
-createPickupMarker = ({collections, isShowNumber, textColor, fillColor, borderColor })=>{
-  return collections.map((pickup,index)=>{
-    return(
-      <Marker
-        flat={true}
-        key={pickup.key}
-        coordinate={{
-          latitude: pickup.location.latitude,
-          longitude: pickup.location.longitude,
-        }}
-        description={pickup.address}
-        onCalloutPress={()=>{
-          this.props.navigation.navigate('PickupDetail',{pickup:pickup});
-        }}
-      >
-        <View
-          style={{
-            height: 25,
-            width: 25,
-            borderRadius: 25,
-            backgroundColor: fillColor,
-            borderWidth: 5,
-            borderColor: borderColor,
-            justifyContent:"center",
-            alignItems:"center",
-          }}>
-          {
-            (isShowNumber)
-            ?<Text
-              style={{color: textColor, fontSize: 9}}>
-              {index+1}
-            </Text>
-            :<View></View>
-          }
-        </View>
-      </Marker>
-    )
-  })
-}
+
 var rad = function(x) {
   return x * Math.PI / 180;
 };
@@ -105,7 +73,7 @@ export default class MapNavigationScreen extends React.Component {
   constructor(props){
     super(props);
     console.log("MapNavigationScreen Start");
-    
+    var emptyCoord = { latitude: "", longitude: ""}
     this.state = {
       collectionsHistory:[],
       collectionsToday: [],
@@ -118,18 +86,13 @@ export default class MapNavigationScreen extends React.Component {
       isMockLocation: true,
       isReachedPickup: false,
       isNotified: false,
-      currentLocation: {
-        latitude:"",
-        longitude: "",
-      },
-      pickupLocation: {
-        latitude:"",
-        longitude: "",
-      },
-      notificationLocation: {
-        latitude:"",
-        longitude: "",
-      }
+      arrivedNotificationStatus: "pending",
+      incomingNotificationStatus: "pending",
+      currentLocation: emptyCoord,
+      pickupLocation: emptyCoord,
+      notificationLocation: emptyCoord,
+      originLocation: emptyCoord,
+      destinationLocation: emptyCoord,
     };
     
   }
@@ -142,6 +105,8 @@ export default class MapNavigationScreen extends React.Component {
     var pickupPaths = [];
     var pickupLocation = {};
     var notificationLocation = {};
+    let originLocation = this.state.currentLocation;
+    let destinationLocation = dumpsiteLocation;
     if( route != false ){
       console.log("Retrieved atleast one route", route);
       // arrange 
@@ -160,7 +125,13 @@ export default class MapNavigationScreen extends React.Component {
       paths, 
       pickupPaths,
       pickupLocation,
-      notificationLocation
+      notificationLocation,
+      originLocation,
+      destinationLocation,
+      isNotified: false,
+      isReachedPickup: false,
+      arrivedNotificationStatus: "pending",
+      incomingNotificationStatus: "pending",
     },
     ()=>{
       this.map.fitToCoordinates(paths, {
@@ -168,6 +139,55 @@ export default class MapNavigationScreen extends React.Component {
         animated: true,
       });
     });
+  }
+  createPickupMarker = (type)=>{
+    var pending = {
+      collection: this.state.pendingCollections
+    };
+    var collected = {
+      collection: this.state.collectedCollections
+    };
+    var skipped = {
+      collection: this.state.skippedCollections
+    };
+    var pickupType = {};
+  
+    if(type == "pending") pickupType = pending;
+    else if(type == "collected") pickupType = collected;
+    else if(type == "skipped") pickupType = skipped;
+    
+    return pickupType.collection.map((pickup,index)=>{
+      var content = null;
+      var style = {fontSize: 8, fontWeight: "bold"}
+      if(type == "pending") content = <Text style={style}>{index+1}</Text>;
+      else if(type == "collected") content  = CheckIcon;
+      else if(type == "skipped") content = <Text style={style}>{"S"}</Text>;
+      return(
+        <Marker
+          flat={false}
+          key={pickup.key}
+          coordinate={{
+            latitude: pickup.location.latitude,
+            longitude: pickup.location.longitude,
+          }}
+          tracksViewChanges={false}
+        >
+          <View
+            style={{
+              height: 25,
+              width: 25,
+              borderRadius: 25,
+              backgroundColor: "white",
+              borderWidth: 5,
+              borderColor: "#5D1049",
+              justifyContent:"center",
+              alignItems:"center",
+            }}>
+            { content }
+          </View>
+        </Marker>
+      )
+    })
   }
   generatePaths(route){
     var paths = [];
@@ -244,26 +264,76 @@ export default class MapNavigationScreen extends React.Component {
     }
     return {pickupLocation, notificationLocation};
   }
-  async setCollectorPosition(collectorPos){
-    let state = {
-      currentLocation: collectorPos,
+  async sendNotification({ title, body }){
+    // Build a channel
+    var channel = new firebase.notifications.Android.Channel('pickup-notification', 'Pickup Notification', firebase.notifications.Android.Importance.Max)
+    .setDescription('Channel for pickup notification');
+    firebase.notifications().android.createChannel(channel);
+    // Create the channel
+
+    //var subscribedUsers = await firebase.firestore().collection("Users").where("pickupDocId","==", this.state.pendingCollections[0].key ).get();
+    var subscribedUsers = await firebase.firestore().collection("Users").get();
+    for( doc of subscribedUsers.docs){
+      if(doc.data().pushToken != ""){
+        var notification = new firebase.notifications.Notification()
+        .setNotificationId(doc.data().pushToken)
+        .setTitle(title)
+        .setBody(body);
+        notification
+        .android.setChannelId('pickup-notification')
+        .android.setSmallIcon('ic_launcher');
+
+        await firebase.notifications().displayNotification(notification);
+      }
     }
-    if( !this.state.isReachedPickup && !this.state.isNotified && getDistance(collectorPos, this.state.notificationLocation) < METERS_TO_NOTIFY ){
-      //state.isNotified = true;
-      var result = false;
-      try{
-        var origin = collectorPos.latitude+","+collectorPos.longitude;
-        var destination = this.state.pickupLocation.latitude + "," + this.state.pickupLocation.longitude;
-        result = await fetch(`https://maps.googleapis.com/maps/api/distancematrix/json?units=imperial&origins=${origin}&destinations=${destination}&key=${GOOGLE_API_KEY}`);
-        result = await result.json();
-        console.log("notify");
-      }catch(e){ console.log(e) }
-    }
-    else if( !this.state.isReachedPickup && getDistance(collectorPos, this.state.pickupLocation) < METERS_TO_REACH ){
-      //state.isReachedPickup = true;
-      console.log("reached")
-    }
-    this.setState(state);
+  }
+  setCollectorPosition(collectorPos){
+    this.setState({
+      currentLocation: collectorPos
+    },async ()=>{
+      if( !this.state.isReachedPickup && !this.state.isNotified && getDistance(collectorPos, this.state.notificationLocation) < METERS_TO_NOTIFY ){
+
+        var result = false;
+        try{
+          let sendNotif =  async ()=>{
+            var origin = collectorPos.latitude+","+collectorPos.longitude;
+            var destination = this.state.pickupLocation.latitude + "," + this.state.pickupLocation.longitude;
+            result = await fetch(`https://maps.googleapis.com/maps/api/distancematrix/json?units=imperial&origins=${origin}&destinations=${destination}&departure_time=now&key=${GOOGLE_API_KEY}`);
+            result = await result.json();
+            var duration = result.rows[0].elements[0].duration_in_traffic.text;
+            this.setState({ incomingNotificationStatus: "loading"});
+            await this.sendNotification({
+              title: "Incoming Truck Collector", 
+              body: "ETA: " + duration
+            });
+            this.setState({ 
+              incomingNotificationStatus: "sent" 
+            });
+          };
+          sendNotif();
+        }catch(e){ console.log(e) }
+      }
+      else if( !this.state.isReachedPickup && getDistance(collectorPos, this.state.pickupLocation) < METERS_TO_REACH ){
+        let sendNotif = async ()=>{
+          await this.sendNotification({
+            title: "Truck Collector has reached your location", 
+            body: "Collectors are now ready to get your trash"
+          });
+          var pendingCollections = [...this.state.pendingCollections];
+          var collectedCollections = [...this.state.collectedCollections];
+          var pickup = pendingCollections.shift();
+          collectedCollections.push(pickup);
+          await firebase.firestore().collection("Collections").doc(pickup.key)
+            .update({status: "collected"});
+          this.setState({
+            collectedCollections,
+          },()=>this.handleReRoutePress(pendingCollections));
+        }
+        sendNotif();
+        console.log("reached")
+      }
+    });
+    
   }
   async loadData(){
     console.log("Load Data start");
@@ -286,6 +356,9 @@ export default class MapNavigationScreen extends React.Component {
       let targetLocation = this.getTargetLocation(pickupPaths);
       let pickupLocation = targetLocation.pickupLocation;
       let notificationLocation = targetLocation.notificationLocation;
+      let originLocation = await getCurrentPosition();
+      originLocation = originLocation.coords;
+      let destinationLocation = dumpsiteLocation;
       this.setState({
         collectionsToday,
         collectionsHistory,
@@ -297,6 +370,8 @@ export default class MapNavigationScreen extends React.Component {
         pickupPaths,
         pickupLocation,
         notificationLocation,
+        originLocation,
+        destinationLocation,
       })
     }
     catch(e){
@@ -313,37 +388,92 @@ export default class MapNavigationScreen extends React.Component {
     };
     let strokeColors = [];
 
-    var pendingCollectionsMarker = createPickupMarker({
-      collections: this.state.pendingCollections, 
-      isShowNumber: true, 
-      textColor: "white", 
-      fillColor: Colors.red, 
-      borderColor: Colors.purple,
-    });
-    var collectedCollectionsMarker = createPickupMarker({
-      collections: this.state.collectedCollections, 
-      isShowNumber: false, 
-      textColor: "white", 
-      fillColor: Colors.red, 
-      borderColor: Colors.purple,
-    });
-    var skippedCollectionsMarker = createPickupMarker({
-      collections: this.state.skippedCollections, 
-      isShowNumber: false, 
-      textColor: "white", 
-      fillColor: Colors.red, 
-      borderColor: Colors.purple,
-    });
+    var pendingCollectionsMarker = this.createPickupMarker("pending");
+    var collectedCollectionsMarker = this.createPickupMarker("collected");
+    var skippedCollectionsMarker = this.createPickupMarker("skipped");
     var notificationMarker = ()=>{
       if( this.state.notificationLocation.latitude != ""){
+        var label = null;
+        if(this.state.incomingNotificationStatus == "pending"){
+          label = <Text style={{color:Colors.purple, fontSize:9, fontWeight:"bold"}}>!</Text>
+        }
+        else if(this.state.incomingNotificationStatus == "loading"){
+          label = <ActivityIndicator size="small" color={Colors.purple} />
+        }
+        else{ label = CheckIcon }
         return (
           <Marker
             flat={false}
+            tracksViewChanges={false}
             coordinate={{
               latitude: this.state.notificationLocation.latitude,
               longitude: this.state.notificationLocation.longitude,
             }}
-          />
+          >
+          <View style={{
+            height:18, 
+            width: 28,
+            borderRadius: 10, 
+            borderWidth: 1, 
+            borderColor: Colors.purple, 
+            backgroundColor:"white",
+            justifyContent:"center",
+            alignItems:"center",
+          }}>{ label }</View>
+          <Callout style={{padding: "auto", width: 50}}><Text adjustsFontSizeToFit={true}>Notification</Text></Callout>
+          </Marker>
+        )
+      }
+      return null;
+    }
+    var originMarker = ()=>{
+      if( this.state.originLocation.latitude != ""){
+        return (
+          <Marker
+            flat={false}
+            tracksViewChanges={false}
+            coordinate={{
+              latitude: this.state.originLocation.latitude,
+              longitude: this.state.originLocation.longitude,
+            }}
+          >
+          <View style={{
+            height:18, 
+            width: 28,
+            borderRadius: 10, 
+            borderWidth: 1, 
+            borderColor: Colors.purple, 
+            backgroundColor:"white",
+            justifyContent:"center",
+            alignItems:"center",
+          }}><Text style={{color:Colors.purple, fontSize:9, fontWeight:"bold"}}>start</Text></View>
+          </Marker>
+        )
+      }
+      return null;
+    }
+    var destinationMarker = ()=>{
+      if( this.state.destinationLocation.latitude != ""){
+        return (
+          <Marker
+            flat={false}
+            tracksViewChanges={false}
+            coordinate={{
+              latitude: this.state.destinationLocation.latitude,
+              longitude: this.state.destinationLocation.longitude,
+            }}
+          >
+          <View style={{
+            height:18, 
+            width: 28,
+            borderRadius: 10, 
+            borderWidth: 1, 
+            borderColor: Colors.purple, 
+            backgroundColor:"white",
+            justifyContent:"center",
+            alignItems:"center",
+          }}><Text style={{color:Colors.purple, fontSize:9, fontWeight:"bold"}}>end</Text></View>
+          </Marker>
         )
       }
       return null;
@@ -353,6 +483,7 @@ export default class MapNavigationScreen extends React.Component {
         return (
           <Marker
             flat={false}
+            tracksViewChanges={false}
             coordinate={{
               latitude: this.state.currentLocation.latitude,
               longitude: this.state.currentLocation.longitude,
@@ -362,7 +493,6 @@ export default class MapNavigationScreen extends React.Component {
       }
       return null;
     }
-
     return (
       <View style={styles.container}>
         <View style={styles.reRoute}>
@@ -408,6 +538,8 @@ export default class MapNavigationScreen extends React.Component {
           { skippedCollectionsMarker }
           { notificationMarker() }
           { collectorMarker() }
+          { originMarker() }
+          { destinationMarker() }
         </MapView>
       </View>
     );

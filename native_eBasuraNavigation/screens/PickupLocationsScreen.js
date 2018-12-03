@@ -349,6 +349,7 @@ export default class collectionsTodayScreen extends React.Component {
               return(
                 <Marker
                   key={pickup.key}
+                  tracksViewChanges={false}
                   coordinate={{
                     latitude: pickup.location.latitude,
                     longitude: pickup.location.longitude,
