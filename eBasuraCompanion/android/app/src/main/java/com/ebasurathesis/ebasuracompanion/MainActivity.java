@@ -1,4 +1,4 @@
-package com.ebasuracompanion;
+package com.ebasurathesis.ebasuracompanion;
 
 import com.facebook.react.ReactActivity;
 
