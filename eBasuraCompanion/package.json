@@ -8,6 +8,7 @@
     "android-windows": "react-native bundle --platform android --dev false --entry-file index.js --bundle-output android/app/src/main/assets/index.android.bundle --assets-dest android/app/src/main/res"
   },
   "dependencies": {
+    "moment": "^2.22.2",
     "react": "16.6.1",
     "react-native": "0.57.7",
     "react-native-firebase": "^5.1.1",
