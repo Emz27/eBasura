@@ -7,6 +7,8 @@ import { Marker} from 'react-native-maps'
 
 import firebase from 'react-native-firebase';
 
+import moment from 'moment';
+
 
 import { MonoText } from '../components/StyledText';
 
@@ -20,8 +22,7 @@ const LONGITUDE_DELTA = LATITUDE_DELTA * ASPECT_RATIO
 export default class collectionsTodayScreen extends React.Component {
   constructor(props){
     super(props);
-    this.loadcollectionsToday();
-    this.loadUser();
+    this.loadData();
     this.state = {
       user:{},
       collectionsToday:[],
@@ -30,7 +31,34 @@ export default class collectionsTodayScreen extends React.Component {
     }
     this.coordinates = [];
     this.uniqueCollections = [];
+
+    this.willFocusNavigationCallback = this.props.navigation.addListener(
+      'didFocus',
+      async (payload) => {
+        var collectionsToday = [...this.state.collectionsToday];
+
+        var refreshedCollectionsToday = JSON.parse(await AsyncStorage.getItem('collectionsToday'));
+
+        collectionsToday.map(( item, index )=>{
+          var pickup = refreshedCollectionsToday.find((p, index)=>{
+            return item.key == p.key;
+          })
+          if(pickup){
+            item.dateTime = pickup.dateTime;
+            item.status = pickup.status;
+          }
+        });
+        this.setState({
+          collectionsToday
+        })
+      }
+    );
+    
   }
+  infoLeftOpenOffset = (-1)*windowX*.1;
+  infoRightOpenOffset = windowX*.1;
+  infoLeftCloseOffset = (-1)*windowX*.4;
+  infoRightCloseOffset = windowX*.4;
   static navigationOptions = {
     header: null,
   }
@@ -38,37 +66,17 @@ export default class collectionsTodayScreen extends React.Component {
     await AsyncStorage.removeItem('eBasuraNavigationUser');
     this.props.navigation.navigate('AuthLoading');
   }
-  componentDidMount(){
-    
+  componentWillUnmount(){
+    this.willFocusNavigationCallback.remove();
   }
-  loadData = async ()=>{
+  async loadData(){
+    var collectionsHistory = await this.getCollectionsHistory();
+    var collectionsToday = await this.getCollectionsToday();
+    var user = await this.getUser();
 
-  }
-  loadcollectionsToday = async ()=>{
-    var collectionsToday = [];
-    var collectionsHistory = [];
-    collectionsToday = JSON.parse(await AsyncStorage.getItem('collectionsToday'));
-    collectionsHistory = JSON.parse(await AsyncStorage.getItem('collectionsHistory'));
-    collectionsToday = collectionsToday.map((pickup)=>{
-      pickup.infoLeftOpenOffset = (-1)*windowX*.1;
-      pickup.infoRightOpenOffset = windowX*.1;
-      pickup.infoLeftCloseOffset = (-1)*windowX*.4;
-      pickup.infoRightCloseOffset = windowX*.4;
-      pickup.isOpen = false;
-      pickup.infoLeftCurrentOffset = new Animated.Value( pickup.infoLeftCloseOffset );
-      pickup.infoRightCurrentOffset = new Animated.Value( pickup.infoRightCloseOffset );
-      return pickup;
-    });
-    this.uniqueCollections = collectionsToday;
-    collectionsHistory = collectionsHistory.map((pickup)=>{
-      pickup.infoLeftOpenOffset = (-1)*windowX*.1;
-      pickup.infoRightOpenOffset = windowX*.1;
-      pickup.infoLeftCloseOffset = (-1)*windowX*.4;
-      pickup.infoRightCloseOffset = windowX*.4;
-      pickup.isOpen = false;
-      pickup.infoLeftCurrentOffset = new Animated.Value( pickup.infoLeftCloseOffset );
-      pickup.infoRightCurrentOffset = new Animated.Value( pickup.infoRightCloseOffset );
+    this.uniqueCollections = [...collectionsToday];
 
+    collectionsHistory.forEach((pickup, index)=>{
       var duplicatePickupCount = 0;
 
       this.uniqueCollections.reduce((duplicatePickupCount, u, i)=>{
@@ -76,11 +84,10 @@ export default class collectionsTodayScreen extends React.Component {
         return duplicatePickupCount;
       });
       if(duplicatePickupCount == 0) this.uniqueCollections.push(pickup);
+    })
 
-      
+    
 
-      return pickup;
-    });
     this.coordinates = [];
     
 
@@ -91,30 +98,53 @@ export default class collectionsTodayScreen extends React.Component {
       })
     })
     console.log(JSON.stringify(this.coordinates)+"hello coordinates");
-    this.map.fitToCoordinates(this.coordinates, {
-      edgePadding: { top: 50, right: 50, bottom: 50, left: 50 },
-      animated: true,
-    });
+    // this.map.fitToCoordinates(this.coordinates, {
+    //   edgePadding: { top: 50, right: 50, bottom: 50, left: 50 },
+    //   animated: true,
+    // });
     //this.map.fitToSuppliedMarkers(this.coordinates, true);
     this.setState({
       collectionsToday: collectionsToday,
       collectionsHistory: collectionsHistory,
+      user: user,
     })
 
     console.log('Pickup Locations Loaded');
   }
-  loadUser = async ()=>{
-    this.setState({
-      user: JSON.parse(await AsyncStorage.getItem('eBasuraNavigationUser'))
-    })
-    console.log('User Loaded');
-  }
-  onItemPress = async (item)=>{
+  async getCollectionsHistory(){
+    var collectionsHistory = JSON.parse(await AsyncStorage.getItem('collectionsHistory'));
+    collectionsHistory = collectionsHistory.map((pickup)=>{
+      pickup.isOpen = false;
 
-    this.map.animateToNavigation({
-      latitude: item.location.latitude,
-      longitude: item.location.longitude,
-    },0,0);
+      pickup.infoLeftCurrentOffset = new Animated.Value( this.infoLeftCloseOffset );
+      pickup.infoRightCurrentOffset = new Animated.Value( this.infoRightCloseOffset );
+
+      return pickup;
+    });
+    return collectionsHistory;
+  }
+  async getCollectionsToday(){
+    var collectionsToday = JSON.parse(await AsyncStorage.getItem('collectionsToday'))
+    
+    collectionsToday = collectionsToday.map((pickup)=>{
+      pickup.isOpen = false;
+      pickup.infoLeftCurrentOffset = new Animated.Value( this.infoLeftCloseOffset );
+      pickup.infoRightCurrentOffset = new Animated.Value( this.infoRightCloseOffset );
+
+      return pickup;
+    });
+
+    return collectionsToday;
+  }
+  async getUser(){
+    return JSON.parse(await AsyncStorage.getItem('user'));
+  }
+  async onItemPress(item){
+
+    // this.map.animateToNavigation({
+    //   latitude: item.location.latitude,
+    //   longitude: item.location.longitude,
+    // },0,0);
     
     const anims = [];
     var addAnim = (pickupItem, type)=>{
@@ -122,7 +152,7 @@ export default class collectionsTodayScreen extends React.Component {
       Animated.spring(
         pickupItem.infoLeftCurrentOffset,
         {
-          toValue: (type!="open")?pickupItem.infoLeftCloseOffset: pickupItem.infoLeftOpenOffset,
+          toValue: (type!="open")?this.infoLeftCloseOffset: this.infoLeftOpenOffset,
           friction: 3,
           tension: 40,
           useNativeDriver: true,}
@@ -130,7 +160,7 @@ export default class collectionsTodayScreen extends React.Component {
       Animated.spring(
         pickupItem.infoRightCurrentOffset,
         {
-          toValue: (type!="open")?pickupItem.infoRightCloseOffset: pickupItem.infoRightOpenOffset,
+          toValue: (type!="open")?this.infoRightCloseOffset: this.infoRightOpenOffset,
           friction: 3,
           tension: 40,
           useNativeDriver: true,
@@ -140,7 +170,7 @@ export default class collectionsTodayScreen extends React.Component {
       else pickupItem.isOpen = true;
     };
     
-    var openItems = this.state.collectionsToday.filter((i)=>{
+    var openItems = [...this.state.collectionsToday, ...this.state.collectionsHistory].filter((i)=>{
       return i.isOpen == true;
     });
     if(openItems.length){
@@ -152,16 +182,10 @@ export default class collectionsTodayScreen extends React.Component {
     else addAnim(item,"open");
 
     await Animated.parallel( anims,{ useNativeDriver: true }).start();
-    item.markerRef.showCallout();
+    // item.markerRef.showCallout();
     
   }
   render() {
-    /* Go ahead and delete ExpoConfigView and replace it with your
-     * content, we just wanted to give you a quick view of your config */
-
-    
-    
-
     return (
       <View style={styles.container}>
         <View style={styles.headerContainer}>
@@ -208,30 +232,14 @@ export default class collectionsTodayScreen extends React.Component {
             <MonoText style={[{color:(this.state.type == "history")?"blue":"black"}]}>History</MonoText>
         </TouchableOpacity>
         </View>
-        
-        <ScrollView
-            style={styles.listContainer}
-            contentContainerStyle={{paddingBottom: 500,pointerEvents:"none"}}
-            // contentInset={{top: 0, left: 0, bottom: 500, right: 0}}
-            pointerEvents={'none'}
-            showsVerticalScrollIndicator={false}
-            scrollsToTop={true}
-            pagingEnabled={false}
-            overScrollMode={"always"}
-            pointerEvents={"none"}
-            // contentOffset={{y:-500}}
-            // onResponderGrant={()=>{console.log("flat list clicked")}}
-            // contentInset={{top: 0, left: 500, bottom: 500, right: 0}}
-
-          >
-          <View style={{ width: "100%"}}>
-                {((this.state.type=="current")?this.state.collectionsToday:this.state.collectionsHistory)
-                .map((item, index)=>{
-                  
-                  let statusColor = "white";
+        <FlatList
+          style={styles.listContainer}
+          data={(this.state.type=="current")?this.state.collectionsToday:this.state.collectionsHistory}
+          renderItem={({item}) =>{
+            let statusColor = "white";
                   var bottomMargin = {};
                   switch(item.status){
-                    case "missed":{
+                    case "skipped":{
                       statusColor = "gray"
                       break;
                     }
@@ -245,7 +253,6 @@ export default class collectionsTodayScreen extends React.Component {
                   }
                   return (
                   <View
-                    key={item.key}
                     style={[styles.itemContainer]}>
                     <TouchableNativeFeedback
                         onPress={()=>{
@@ -257,8 +264,8 @@ export default class collectionsTodayScreen extends React.Component {
                         <MonoText style={{fontSize: 9}}>{item.address}</MonoText>
                         <MonoText style={{fontSize: 10}}>{
                           (()=>{
-                            if( item.status == "collected") return "Collection: "+item.datetime;
-                            else if( item.status == "missed" ) return "Missed Collection: "+item.datetime;
+                            if( item.status == "collected") return "Collected: "+moment(item.dateTime).format("D/M/YYYY  h:mm a");
+                            else if( item.status == "skipped" ) return "Skipped Collection: "+moment(item.dateTime).format("D/M/YYYY  h:mm a");
                             else return "- - -";
                           })()
                         }</MonoText>
@@ -266,13 +273,13 @@ export default class collectionsTodayScreen extends React.Component {
                     </TouchableNativeFeedback>
                     <Animated.View 
                       style={[
-                          { 
-                            transform: [{ translateX: item.infoLeftCurrentOffset }] 
-                          },
                           styles.itemInfoContainer,
                           styles.itemLeftInfoContainer,
                           {
                             backgroundColor: statusColor
+                          },
+                          { 
+                            transform: [{ translateX: item.infoLeftCurrentOffset }] 
                           },
                         ]}
                     >
@@ -282,13 +289,13 @@ export default class collectionsTodayScreen extends React.Component {
                     </Animated.View>
                     <Animated.View 
                       style={[
-                        { 
-                          transform: [{ translateX: item.infoRightCurrentOffset }] 
-                        },
                         styles.itemInfoContainer,
                         styles.itemRightInfoContainer,
                         {
                           backgroundColor: statusColor
+                        },
+                        { 
+                          transform: [{ translateX: item.infoRightCurrentOffset }] 
                         },
                       ]}
                     >
@@ -330,61 +337,8 @@ export default class collectionsTodayScreen extends React.Component {
                       </View>
                     </Animated.View>
                   </View>)
-                                    
-                })}
-                </View>
-          </ScrollView>
-
-        <MapView
-          style={styles.map}
-          ref={ref => { this.map = ref; }}
-          initialRegion={{
-            latitude: 14.61881,
-            longitude: 121.057171,
-            latitudeDelta: LATITUDE_DELTA,
-            longitudeDelta: LONGITUDE_DELTA,
-        }}>
-          {
-            this.uniqueCollections.map((pickup,index)=>{
-              return(
-                <Marker
-                  key={pickup.key}
-                  tracksViewChanges={false}
-                  coordinate={{
-                    latitude: pickup.location.latitude,
-                    longitude: pickup.location.longitude,
-                  }}
-                  ref={ref => { pickup.markerRef = ref; }}
-                  title={pickup.pickupid}
-                  onCalloutPress={()=>{
-                    this.props.navigation.navigate('PickupDetail',{pickup:pickup});
-                  }}
-                >
-                </Marker>
-              )
-            })
-          }
-        </MapView>
-        {/* <View 
-          pointerEvents={"box-none"}
-          style={{
-            height: 300,
-            width: "100%",
-            backgroundColor: "white",
-            padding: 100,
-          
-          }}>
-          <View
-            style={{
-              backgroundColor: "green",
-              flex:1,
-
-            }}
-          >
-
-          </View>
-        </View> */}
-
+          }}
+        />
       </View>
     );
   }
@@ -444,11 +398,13 @@ const styles = StyleSheet.create({
   },
   itemLeftInfoContainer: {
     left: 0,
+    transform:[{translateX: -144}],
     borderTopRightRadius:10,
     borderBottomRightRadius:10,
   },
   itemRightInfoContainer: {
     right: 0,
+    transform:[{translateX: 144}],
     borderTopLeftRadius:10,
     borderBottomLeftRadius:10,
   },

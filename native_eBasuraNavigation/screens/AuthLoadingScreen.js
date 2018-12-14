@@ -81,7 +81,7 @@ export default class AuthLoadingScreen extends React.Component {
         pushToken = await firebase.messaging().getToken();
       } 
       else {
-        await firebase.messaging().requestPermissions();
+        await firebase.messaging().requestPermission();
         pushToken = await firebase.messaging().getToken();
       }
       try{
