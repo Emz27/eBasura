@@ -184,15 +184,8 @@ export default class AuthLoadingScreen extends React.Component {
       var data = doc.data();
       var col = {
         key: doc.id,
-        address: data.address,
-        comment: data.comment,
-        dateTime: data.dateTime,
-        location: data.location,
-        pickupId: data.pickupId,
-        pickupDocId: data.pickupDocId,
-        status: data.status,
-        truckDocId: data.truckDocId,
-        collectors: data.collectors,
+        ...data,
+
       }
       if(moment(currentDate).isSame(collectionDate,'day')){
         

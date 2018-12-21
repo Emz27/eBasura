@@ -1,6 +1,5 @@
 import React from 'react';
-import { ScrollView, TouchableOpacity,TouchableNativeFeedback, Button, TouchableWithoutFeedback, Text, View, AsyncStorage, FlatList, StyleSheet, Animated, Dimensions } from 'react-native'
-// import { MapView , Icon, } from 'expo'
+import { TextInput,  ScrollView, TouchableOpacity,TouchableNativeFeedback, Button, TouchableWithoutFeedback,Modal, TouchableHighlight, Text, View, AsyncStorage, FlatList, StyleSheet, Animated, Dimensions } from 'react-native'
 import MapView from 'react-native-maps'
 import { Marker} from 'react-native-maps'
 
@@ -11,6 +10,14 @@ import moment from 'moment';
 
 
 import { MonoText } from '../components/StyledText';
+
+import SimpleLineIcons from 'react-native-vector-icons/SimpleLineIcons';
+import MaterialCommunityIcons from 'react-native-vector-icons/MaterialCommunityIcons';
+
+const RemarkIconGreen = (<SimpleLineIcons name="note" size={15} color="green" />)
+const RemarkIconBlack = (<SimpleLineIcons name="note" size={15} color="black" />)
+
+const DetailIcon = (<MaterialCommunityIcons name="information-variant" size={15} color="black" />)
 
 let { width: windowX } = Dimensions.get('window')
 
@@ -27,6 +34,8 @@ export default class collectionsTodayScreen extends React.Component {
       user:{},
       collectionsToday:[],
       collectionsHistory:[],
+      selectedPickupIndex: -1,
+      modalVisible: false,
       type:"current",
     }
     this.coordinates = [];
@@ -45,6 +54,9 @@ export default class collectionsTodayScreen extends React.Component {
           })
           if(pickup){
             item.dateTime = pickup.dateTime;
+            item.dateTimeCollected = pickup.dateTimeCollected;
+            item.dateTimeSkipped = pickup.dateTimeSkipped;
+            item.dateTimeUnskipped = pickup.dateTimeSkipped
             item.status = pickup.status;
           }
         });
@@ -61,6 +73,11 @@ export default class collectionsTodayScreen extends React.Component {
   infoRightCloseOffset = windowX*.4;
   static navigationOptions = {
     header: null,
+  }
+  onInputChange(input){
+    this.setState({
+      ...input,
+    });
   }
   onPressSignOut = async () =>{
     await AsyncStorage.removeItem('eBasuraNavigationUser');
@@ -188,6 +205,66 @@ export default class collectionsTodayScreen extends React.Component {
   render() {
     return (
       <View style={styles.container}>
+      <Modal
+          animationType="slide"
+          transparent={true}
+          visible={this.state.modalVisible}
+          presentationStyle={"overFullScreen"}
+          onRequestClose={() => {
+            // Alert.alert('Modal has been closed.');
+          }}>
+          <View style={{
+              marginTop: "40%", 
+              marginHorizontal: 20, 
+              backgroundColor:"white", 
+              padding: 15, 
+              elevation: 5,
+              borderRadius: 5,
+            }}>
+              <Text>Write your remarks for the selected pickup location</Text>
+              <TextInput
+                style={{marginTop: 20,marginBottom: 20,height:80, width:"100%", borderColor: 'gray', borderWidth: 1}}
+                onChangeText={(text) => this.onInputChange({driverRemarks:text})}
+                value={this.state.driverRemarks}
+                placeholder="Remarks"
+                multiline={true}
+                numberOfLines={3}
+              />
+              <Button
+                onPress={async ()=>{
+
+                  var selectedPickupIndex = this.state.selectedPickupIndex;
+                  var collectionsToday = [...this.state.collectionsToday];
+                  var selectedPickup = collectionsToday[this.state.selectedPickupIndex];
+                  selectedPickup.driverRemarks = this.state.driverRemarks;
+                  try{
+                    var result = await firebase.firestore().collection("Collections").doc(selectedPickup.key).update({
+                      driverRemarks: this.state.driverRemarks
+                    });
+                  }
+                  catch(e){
+                    console.log(e);
+                  }
+                  
+                  this.setState({
+                    modalVisible: !this.state.modalVisible ,
+                    collectionsToday: collectionsToday,
+                    driverRemarks: "",
+                  });
+                }}
+                title="Ok"
+                color="#841584"
+              />
+              <Button
+                onPress={()=>{
+                  this.setState({driverRemarks: "", modalVisible: !this.state.modalVisible });
+                }}
+                title="Cancel"
+                color="#841584"
+              />
+
+          </View>
+        </Modal>
         <View style={styles.headerContainer}>
         <TouchableOpacity
           style={{
@@ -235,7 +312,7 @@ export default class collectionsTodayScreen extends React.Component {
         <FlatList
           style={styles.listContainer}
           data={(this.state.type=="current")?this.state.collectionsToday:this.state.collectionsHistory}
-          renderItem={({item}) =>{
+          renderItem={({item, index}) =>{
             let statusColor = "white";
                   var bottomMargin = {};
                   switch(item.status){
@@ -264,8 +341,8 @@ export default class collectionsTodayScreen extends React.Component {
                         <MonoText style={{fontSize: 9}}>{item.address}</MonoText>
                         <MonoText style={{fontSize: 10}}>{
                           (()=>{
-                            if( item.status == "collected") return "Collected: "+moment(item.dateTime).format("D/M/YYYY  h:mm a");
-                            else if( item.status == "skipped" ) return "Skipped Collection: "+moment(item.dateTime).format("D/M/YYYY  h:mm a");
+                            if( item.status == "collected") return "Collected: "+moment(item.dateTimeCollected).format("D/M/YYYY  h:mm a");
+                            else if( item.status == "skipped" ) return "Skipped Collection: "+moment(item.dateTimeSkipped).format("D/M/YYYY  h:mm a");
                             else return "- - -";
                           })()
                         }</MonoText>
@@ -300,6 +377,7 @@ export default class collectionsTodayScreen extends React.Component {
                       ]}
                     >
                       <View style={{flex:1,flexDirection:"row",alignItems: "center", alignContent: "space-between", elevation:2, backgroundColor:"white", margin:5,paddingLeft: windowX*.1, borderRadius: 10}}>
+                      {(moment().isSame(item.dateTime,'day'))?
                       <TouchableOpacity
                         style={{
                             borderWidth:1,
@@ -313,8 +391,18 @@ export default class collectionsTodayScreen extends React.Component {
                             elevation:2,
                             marginLeft:5,
                           }}
+                        onPress={()=>{
+                          this.setState({
+                            modalVisible: !this.state.modalVisible, 
+                            selectedPickupIndex: index,
+                            driverRemarks: this.state.collectionsToday[index].driverRemarks,
+                          })
+                        }}
                       >
-                      </TouchableOpacity>
+                      {(item.driverRemarks)?RemarkIconGreen: RemarkIconBlack}
+                    </TouchableOpacity>
+                      
+                      :null}
 
                       <TouchableOpacity
                         style={{
@@ -332,7 +420,8 @@ export default class collectionsTodayScreen extends React.Component {
                           onPress={()=>{
                             this.props.navigation.navigate('PickupDetail',{pickup:item});
                           }}
-                      >
+                        >
+                        {DetailIcon}
                       </TouchableOpacity>
                       </View>
                     </Animated.View>

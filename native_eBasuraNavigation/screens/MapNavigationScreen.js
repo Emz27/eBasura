@@ -303,7 +303,7 @@ export default class MapNavigationScreen extends React.Component {
       var pickup = this.state.selectedPickup;
       
       if(pickup.status == "pending"){
-        if(pickup.key == this.state.currentPickup.key && this.state.isPickupLoading){
+        if(pickup.key == this.state.selectedPickup.key && this.state.isPickupLoading){
           buttons.push(
             <Button
 
@@ -424,11 +424,11 @@ export default class MapNavigationScreen extends React.Component {
     
     var pickup = pendingCollections.shift();
     pickup.status = "collected";
-    pickup.dateTime = new Date();
+    pickup.dateTimeCollected = new Date();
     collectedCollections.push(pickup);
 
     await firebase.firestore().collection("Collections").doc(pickup.key)
-      .update({status: "collected", dateTime: new Date()});
+      .update({status: "collected", dateTimeCollected: new Date()});
 
     await this.sendPushNotification({
       title: "Truck Collector has reached your location", 
@@ -460,11 +460,11 @@ export default class MapNavigationScreen extends React.Component {
 
     var pickup = selectedPickup;
     pickup.status = "skipped";
-    pickup.dateTime = new Date();
+    pickup.dateTimeSkipped = new Date();
     skippedCollections.push(pickup);
     
     await firebase.firestore().collection("Collections").doc(pickup.key)
-      .update({status: "skipped", dateTime: new Date()});
+      .update({status: "skipped", dateTimeSkipped: new Date()});
     await this.sendPushNotification({
       title: "Trash Collection Update", 
       body: "Truck collector wont be collecting trash in your location today. Sorry for inconvenience",
@@ -495,11 +495,11 @@ export default class MapNavigationScreen extends React.Component {
 
     var pickup = selectedPickup;
     pickup.status = "pending";
-    pickup.dateTime = new Date();
+    pickup.dateTimeUnskipped = new Date();
     pendingCollections.push(pickup);
     
     await firebase.firestore().collection("Collections").doc(pickup.key)
-      .update({status: "pending", dateTime: new Date()});
+      .update({status: "pending", dateTimeUnskipped: new Date()});
     await this.sendPushNotification({
       title: "Trash Collection Update", 
       body: "Truck collector will collect trash in your location within this day. Please wait for further notification",

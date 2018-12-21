@@ -1,5 +1,5 @@
 import React, { Component } from 'react'
-import { View, ActivityIndicator, StyleSheet, Dimensions } from 'react-native'
+import {AsyncStorage, View, ActivityIndicator, StyleSheet, Dimensions } from 'react-native'
 import firebase from 'react-native-firebase'
 import moment from 'moment'
 
@@ -19,10 +19,13 @@ export default class AuthLoading extends Component{
 
     var users = await usersRef.where( "pushToken", "==", pushToken ).get();
     if(users.docs.length == 0){
-      await usersRef.add({
+      var user = {
         pushToken: pushToken,
-        pickupId: "",
-      });
+        pickupDocId: "",
+        type: "resident",
+      }
+      await usersRef.add(user);
+      await AsyncStorage.setItem("user",JSON.stringify(user));
       return this.loadData();
     }
 
