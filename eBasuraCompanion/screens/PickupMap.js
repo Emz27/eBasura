@@ -26,7 +26,7 @@ export default class PickupMap extends Component {
     this.setState({isPickupInfoOpen: true}, async ()=>{
       Animated.spring(this.pickupInfoTranslateY,
         {
-          toValue: 0,
+          toValue: 30,
           useNativeDriver: true,
         }
       ).start();
@@ -141,7 +141,7 @@ export default class PickupMap extends Component {
       return (
         <Marker
           flat={false}
-          key={pickup.pickupDocId}
+          key={(pickup.pickupDocId != this.state.user.pickupDocId)?pickup.pickupDocId:pickup.pickupDocId+ (new Date()).toDateString()}
           coordinate={{
             latitude: pickup.location.latitude,
             longitude: pickup.location.longitude,
