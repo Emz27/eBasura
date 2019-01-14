@@ -16,5 +16,15 @@ code {
 #root #container{
   padding: 0px;
   margin: 0px;
-  min-height: 100vh;
+}
+html, body,#root, #container {
+  height: 100%;
+}
+.col {
+  padding: 0px;
+}
+
+body > div
+{
+  transition:all 0.3s ease;
 }

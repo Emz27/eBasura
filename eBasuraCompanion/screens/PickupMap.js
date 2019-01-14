@@ -1,6 +1,6 @@
 
 import React, { Component } from 'react'
-import { AsyncStorage, Text, Animated,Button, StyleSheet, View, StatusBar, Dimensions } from 'react-native'
+import { Modal, TextInput, AsyncStorage, Text, Animated,Button, StyleSheet, View, StatusBar, Dimensions, Alert } from 'react-native'
 import MapView, { Marker } from 'react-native-maps'
 
 import Colors from './../constants/Colors.js'
@@ -16,6 +16,8 @@ export default class PickupMap extends Component {
       currentLocation: props.navigation.getParam('currentLocation'),
       isPickupInfoOpen: false,
       selectedPickup: {pickupDocId: ""},
+      modalVisible: false,
+      residentRemarks: "",
     }
     this.pickupInfoTranslateY = new Animated.Value(-300);
   }
@@ -63,6 +65,69 @@ export default class PickupMap extends Component {
         <StatusBar 
           backgroundColor={Colors.purpleDark}
         />
+        <Modal
+          animationType="slide"
+          transparent={true}
+          visible={this.state.modalVisible}
+          presentationStyle={"overFullScreen"}
+          onRequestClose={() => {
+            // Alert.alert('Modal has been closed.');
+          }}>
+          <View style={{
+              marginTop: "40%", 
+              marginHorizontal: 20, 
+              backgroundColor:"white", 
+              padding: 15, 
+              elevation: 5,
+              borderRadius: 5,
+            }}>
+              <Text>Write your feedback message for the selected pickup location</Text>
+              <TextInput
+                style={{marginTop: 20,marginBottom: 20,height:80, width:"100%", borderColor: 'gray', borderWidth: 1}}
+                onChangeText={(text) =>{
+                  return this.setState({residentRemarks:text});
+                }}
+                value={this.state.residentRemarks}
+                placeholder="Feedback..."
+                multiline={true}
+                numberOfLines={3}
+              />
+              <Button
+                onPress={async ()=>{
+                  
+                  var feedback = this.state.residentRemarks;
+                  this.setState({
+                    modalVisible: !this.state.modalVisible ,
+                    residentRemarks: "",
+                  }, async ()=>{
+                    Alert.alert(
+                      'Feedback sent!',
+                      'feedback: '+ feedback,
+                      [
+                      ],
+                      { cancelable: true }
+                    )
+                    firebase.firestore().collection("Feedbacks").add({
+                      userDocId: this.state.user.userDocId,
+                      message: this.state.residentRemarks,
+                      pickupDocId: this.state.selectedPickup.pickupDocId,
+                      dateTime: new Date(),
+                    });
+                  });
+                }}
+                title="Ok"
+                color="#841584"
+              />
+              <Button
+                onPress={()=>{
+                  this.setState({residentRemarks: "", modalVisible: !this.state.modalVisible });
+                }}
+                title="Cancel"
+                color="#841584"
+              />
+
+          </View>
+        </Modal>
         <View style={styles.header}></View>
         <Animated.View style={[ styles.pickupInfo, {translateY: this.pickupInfoTranslateY} ]}>
           <View style={styles.pickupInfoContentBox}>
@@ -73,8 +138,14 @@ export default class PickupMap extends Component {
             <Button
               onPress={()=>{
               }}
-              title="Send Report"
+              title="Send Feedback"
               style={buttonStyle}
+              onPress={()=>{
+                this.setState({
+                  modalVisible: !this.state.modalVisible, 
+                  residentRemarks: "",
+                })
+              }}
             />
             <View style={{height: 5}}/>
             {(this.state.selectedPickup.pickupDocId != this.state.user.pickupDocId)

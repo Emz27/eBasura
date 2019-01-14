@@ -30,12 +30,14 @@ export default class NavigationBar extends React.Component {
   }
   render() {
     return (
-      <div>
-        <Navbar fixed="top" color="light" light expand="md">
+        <Navbar color="light" light expand="md">
           <NavbarBrand href="/"></NavbarBrand>
           <NavbarToggler onClick={this.toggle} />
           <Collapse isOpen={this.state.isOpen} navbar>
             <Nav className="ml-auto" navbar>
+              <NavItem>
+                <NavLink className="nav-link" to="/monitor">Monitor</NavLink>
+              </NavItem>
               <NavItem>
                 <NavLink className="nav-link" to="/users">Users</NavLink>
               </NavItem>
@@ -48,7 +50,6 @@ export default class NavigationBar extends React.Component {
             </Nav>
           </Collapse>
         </Navbar>
-      </div>
     );
   }
 }

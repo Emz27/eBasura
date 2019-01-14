@@ -21,6 +21,8 @@ import com.airbnb.android.react.maps.MapsPackage;
 import com.horcrux.svg.SvgPackage;
 import com.BV.LinearGradient.LinearGradientPackage;
 
+import com.oney.WebRTCModule.WebRTCModulePackage;
+
 import java.util.Arrays;
 import java.util.List;
 
@@ -44,7 +46,8 @@ public class MainApplication extends Application implements ReactApplication {
           new RNFirebaseMessagingPackage(),
           new RNFirebaseNotificationsPackage(),
           new SvgPackage(),
-          new LinearGradientPackage()
+          new LinearGradientPackage(),
+          new WebRTCModulePackage()
       );
     }
 

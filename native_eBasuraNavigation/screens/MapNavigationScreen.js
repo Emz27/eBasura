@@ -15,6 +15,16 @@ import {
   Button,
 } from 'react-native';
 
+import {
+  RTCPeerConnection,
+  RTCIceCandidate,
+  RTCSessionDescription,
+  RTCView,
+  MediaStream,
+  MediaStreamTrack,
+  getUserMedia,
+} from 'react-native-webrtc';
+
 import MapView, { Callout } from 'react-native-maps'
 import {Marker, Polyline} from 'react-native-maps'
 
@@ -105,6 +115,175 @@ export default class MapNavigationScreen extends React.Component {
       isPickupInfoOpen: false,
     };
     this.pickupInfoTranslateY = new Animated.Value(-300);
+    this.dataChannel = null;
+    this.peerConnection = null;
+    this.listeners = [];
+  }
+  async componentWillUnmount(){
+    await this.resetConnection();
+    this.listeners.forEach((item)=>{
+      try{
+        item();
+      }
+      catch(e){console.log(e, e.message)}
+    });
+  }
+  async setupStream(){
+    console.log("Setup connection ...");
+    
+
+    await this.createConnection();
+
+    var listener = firebase.firestore().collection("Trucks").doc(this.user.truck.truckDocId)
+    .onSnapshot(async (doc)=>{
+        console.log("\nreceived data from server...\n");
+        var data = doc.data();
+        var ic = data.remoteIceCandidates;
+        
+        if(data.remoteIceCandidateStatus === "sent"){
+
+          for( let c of ic ){
+            if(c != null && c !== ""){
+              try{
+                await this.peerConnection.addIceCandidate(new RTCIceCandidate(c));
+              }
+              catch(e){
+                console.log(e);
+              }
+            }
+          }
+          console.log("received: Remote ICE Candidates");
+          await firebase.firestore().collection("Trucks").doc(this.user.truck.truckDocId).update({ remoteIceCandidateStatus: "received" });
+        }
+        if(data.remoteDescriptionStatus === "sent"){
+          var connectionState = this.peerConnection.iceConnectionState;
+          try{
+            if(connectionState == "new"){
+              await this.peerConnection.setRemoteDescription(new RTCSessionDescription(data.remoteDescription));
+              await firebase.firestore().collection("Trucks").doc(this.user.truck.truckDocId).update({remoteDescriptionStatus: "received" });              
+              console.log("received: Remote Session Description");
+            }
+            console.log("set remote description blocked: ice connection state - "+this.peerConnection.iceConnectionState);
+
+          }
+          catch(e){console.log(e)}
+        }
+    });
+    this.listeners.push(listener);
+  }
+  async resetConnection(){
+    try{
+      this.peerConnection.close();
+    }
+    catch(e){console.log(e.message)}
+    await this.stopVideo()
+  }
+  async stopVideo(){
+    try{
+      if(this.stream){
+        if(this.stream.getTracks()){
+          for( var track of this.stream.getTracks()){
+            try{
+              
+              await track.stop();
+              console.log("streamtrack stop");
+            }
+            catch(e){console.log(e.message)}
+          } 
+        }
+      }
+    }
+    catch(e){console.log(e.message)}
+  }
+  async createConnection(){
+    
+    this.resetConnection();
+    var truckDocId = this.user.truck.truckDocId;
+    var configuration = {"iceServers": [{"url": "stun:stun.l.google.com:19302"}]};
+    this.peerConnection = new RTCPeerConnection(configuration);
+    var iceCandidates = [];
+
+    this.dataChannel = this.peerConnection.createDataChannel("sendData",{negotiated: true, id: 0});
+    
+    this.peerConnection.onicecandidate = async (event)=>{
+      // send event.candidate to peer
+      if(event.candidate == null || event.candidate === "") iceCandidates.push(null);
+      else{
+        iceCandidates.push(event.candidate.toJSON());
+      } 
+      if(event.candidate == null || event.candidate == ""){
+        await firebase.firestore().collection("Trucks").doc(this.user.truck.truckDocId).update({
+          localIceCandidates: iceCandidates
+        });
+        console.log("sent: Local ICE Candidate to truck "+this.user.truck.truckDocId);
+        console.log("\nReady to Connect ...\n");
+      }
+    };
+    this.peerConnection.oniceconnectionstatechange = async (event)=>{
+      var connectionState = event.target.iceConnectionState;
+
+      await firebase.firestore().collection("Trucks").doc(truckDocId).update({
+        status: connectionState,
+      })
+      console.log("iceStateChange:"+event.target.iceConnectionState);
+      if (connectionState  === 'completed') {
+      }
+      else if (connectionState  === 'connected') {
+
+      }
+      else if (connectionState  == "failed") {
+
+        await this.createConnection();
+      }
+    }
+    await this.startVideo();
+  }
+  async startVideo(){
+    let isFront = false;
+      var sourceInfos = await MediaStreamTrack.getSources();
+      let videoSourceId;
+      for (let i = 0; i < sourceInfos.length; i++) {
+        const sourceInfo = sourceInfos[i];
+        if(sourceInfo.kind == "video" && sourceInfo.facing == (isFront ? "front" : "back")) {
+          videoSourceId = sourceInfo.id;
+        }
+      }
+    this.stream = await getUserMedia({
+      audio: true,
+      video: {
+        mandatory: {
+          minWidth: 500, // Provide your own width, height and frame rate here
+          minHeight: 300,
+          minFrameRate: 30,
+          OfferToReceiveAudio: true,
+          OfferToReceiveVideo: true,
+        },
+        facingMode: (isFront ? "user" : "environment"),
+        optional: (videoSourceId ? [{sourceId: videoSourceId}] : [])
+      }
+    });
+    await this.peerConnection.addStream(this.stream);
+    await this.startStream();
+  }
+
+  async startStream(config){
+    console.log("Starting the stream ...");
+    var desc = await this.peerConnection.createOffer(config);
+    await this.peerConnection.setLocalDescription(desc);
+    await firebase.firestore().collection("Trucks").doc(this.user.truck.truckDocId).update({
+      localDescription: desc,
+      remoteIceCandidateStatus: "pending",
+      remoteDescriptionStatus: "pending",
+      status: "new",
+    });
+    console.log("sent: Local Session Description to truck ", this.user.truck.truckDocId);
+  }
+  sendDataToPeer(data){
+    console.log(this.peerConnection.iceConnectionState);
+    var pc = this.peerConnection;
+    if(pc != null &&( pc.iceConnectionState === "completed" || pc.iceConnectionState === "connected" || pc.iceConnectionState === "new")){
+      this.dataChannel.send(JSON.stringify(data));
+    }
   }
   async reRoute(pendingCollections){
     var pendingCollections = [...pendingCollections];
@@ -377,27 +556,11 @@ export default class MapNavigationScreen extends React.Component {
     return {pickupLocation, alertLocation};
   }
   async sendPushNotification({ title, body, targetPickup }){
-    // Build a channel
-    var channel = new firebase.notifications.Android.Channel('pickup-notification', 'Pickup Notification', firebase.notifications.Android.Importance.Max)
-    .setDescription('Channel for pickup notification');
-    firebase.notifications().android.createChannel(channel);
-    // Create the channel
-
-    var subscribedUsers = await firebase.firestore().collection("Users").where("pickupDocId","==", targetPickup ).get();
-    // var subscribedUsers = await firebase.firestore().collection("Users").get();
-    for( doc of subscribedUsers.docs){
-      if(doc.data().pushToken != ""){
-        var notification = new firebase.notifications.Notification()
-        .setNotificationId(doc.data().pushToken)
-        .setTitle(title)
-        .setBody(body);
-        notification
-        .android.setChannelId('pickup-notification')
-        .android.setSmallIcon('ic_launcher');
-
-        await firebase.notifications().displayNotification(notification);
-      }
-    }
+    firebase.firestore().collection("Notifications").add({
+      title,
+      body,
+      pickupDocId: targetPickup,
+    })
   }
   async alertSubscribers(){
     var result = false;
@@ -410,8 +573,9 @@ export default class MapNavigationScreen extends React.Component {
       await this.sendPushNotification({
         title: "Incoming Truck Collector", 
         body: "ETA: " + duration,
-        targetPickup: this.state.currentPickup.key,
+        targetPickup: this.state.currentPickup.pickupDocId,
       });
+      console.log(this.state.currentPickup);
       this.setState({ 
         isAlertLoading: false
       });
@@ -430,16 +594,12 @@ export default class MapNavigationScreen extends React.Component {
     await firebase.firestore().collection("Collections").doc(pickup.key)
       .update({status: "collected", dateTimeCollected: new Date()});
 
-    await this.sendPushNotification({
-      title: "Truck Collector has reached your location", 
-      body: "Collectors are now ready to get your trash",
-      targetPickup: this.state.currentPickup.key,
-    });
-
+    console.log(this.state.currentPickup);
     this.setState({
       collectedCollections,
       pendingCollections,
     },async ()=>{
+      this.sendDataToPeer(this.state);
       this.reRoute(pendingCollections)
       AsyncStorage.setItem("collectionsToday",JSON.stringify([ ...this.state.collectedCollections, ...this.state.pendingCollections,...this.state.skippedCollections]));    });
   }
@@ -468,12 +628,14 @@ export default class MapNavigationScreen extends React.Component {
     await this.sendPushNotification({
       title: "Trash Collection Update", 
       body: "Truck collector wont be collecting trash in your location today. Sorry for inconvenience",
-      targetPickup: pickup.key,
+      targetPickup: pickup.pickupDocId,
     });
+    console.log(pickup)
     this.setState({
       skippedCollections,
       pendingCollections,
     },async ()=>{
+      this.sendDataToPeer(this.state);
       this.reRoute(pendingCollections);
       AsyncStorage.setItem("collectionsToday",JSON.stringify([ ...this.state.collectedCollections, ...this.state.pendingCollections,...this.state.skippedCollections]));
     });
@@ -503,12 +665,13 @@ export default class MapNavigationScreen extends React.Component {
     await this.sendPushNotification({
       title: "Trash Collection Update", 
       body: "Truck collector will collect trash in your location within this day. Please wait for further notification",
-      targetPickup: pickup.key,
+      targetPickup: pickup.pickupDocId,
     });
     this.setState({
       skippedCollections,
       pendingCollections,
     },async ()=>{
+      this.sendDataToPeer(this.state);
       this.reRoute(pendingCollections);
       AsyncStorage.setItem("collectionsToday",JSON.stringify([ ...this.state.collectedCollections, ...this.state.pendingCollections,...this.state.skippedCollections]));    });
   }
@@ -536,10 +699,18 @@ export default class MapNavigationScreen extends React.Component {
     this.setState({
       currentLocation: collectorPos
     },async ()=>{
+      this.sendDataToPeer(this.state);      
       if( !this.state.isReachedPickup && !this.state.isReachedAlert && getDistance(collectorPos, this.state.alertLocation) < METERS_TO_NOTIFY ){
+        // reached notify point
         this.setState({isReachedAlert: true, isAlertLoading: true}, this.alertSubscribers);
       }
       else if( !this.state.isReachedPickup && getDistance(collectorPos, this.state.pickupLocation) < METERS_TO_REACH ){
+        // reached pickup point
+        await this.sendPushNotification({
+          title: "Truck Collector has reached your location", 
+          body: "Collectors are now ready to get your trash",
+          targetPickup: this.state.currentPickup.pickupDocId,
+        });
         this.setState({isReachedPickup: true, isPickupLoading: true});
       }
     });
@@ -589,6 +760,7 @@ export default class MapNavigationScreen extends React.Component {
       console.log("Load data failed", e);
     }
     console.log("Load Data end");
+    await this.setupStream();
   }
   createNotificationMarker = ()=>{
     var isAlertLoading = this.state.isAlertLoading;
@@ -707,6 +879,13 @@ export default class MapNavigationScreen extends React.Component {
     let strokeColors = [];
     return (
       <View style={styles.container}>
+        {
+              /*
+              <View style={{position:"absolute", top: 0, zIndex: 6000, height: 200, width: 135, backgroundColor: "white"}}>
+                <RTCView style={{flex: 1}} streamURL={this.state.videoURL}/>
+              </View>
+              */
+              }
         { this.createPickupInfo() }
 
         <View style={styles.reRouteButton}>
@@ -737,6 +916,7 @@ export default class MapNavigationScreen extends React.Component {
           }}
           onPress={(event)=>{
             if(this.state.isMockLocation){
+
               this.setCollectorPosition(event.nativeEvent.coordinate);
             }
             this.closePickupInfo();

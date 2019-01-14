@@ -69,9 +69,10 @@ export default class TrucksCRUD extends React.Component {
       trucks.push({
         truckDocId: doc.id,
         truckId: doc.data().truckId, 
-        batch: batches.findIndex((batch)=>{
-          return batch.batchId === doc.data().batch.batchId
-        }),
+        // batch: batches.findIndex((batch)=>{
+        //   return batch.batchId === doc.data().batch.batchId
+        // }),
+        batch: doc.data().batch,
         collectors : doc.data().collectors
       });
     })
@@ -100,14 +101,16 @@ export default class TrucksCRUD extends React.Component {
     },async ()=>{await this.loadData();})
   }
   onAddItem = (item, index)=>{
-    var users = [...this.state.users];
-    users.splice(index,1);
-    this.setState({
-      collectors : [...this.state.collectors, item],
-      users: users
-    },()=>{
+    if(this.state.collectors.length === 0){
+      var users = [...this.state.users];
+      users.splice(index,1);
+      this.setState({
+        collectors : [...this.state.collectors, item],
+        users: users
+      },()=>{
 
-    });
+      });
+    }
   }
   onRemoveItem = (item, index)=>{
     item.truckId = this.state.truckId;
@@ -140,6 +143,11 @@ export default class TrucksCRUD extends React.Component {
     })
     batch.delete(firestore().collection("Trucks").doc(item.truckDocId));
     await batch.commit();
+    await firestore().collection("Users").where("truckDocId","==",item.truckDocId)
+    .update({
+      truckDocId: "",
+      truckId: "", 
+    })
     this.setState({
       truckDocId: "",
       truckId: "", 
@@ -248,6 +256,12 @@ export default class TrucksCRUD extends React.Component {
                 <option key={""} value={-1}></option>
                 {
                   this.state.batches.map((item, index)=>{
+
+                    var exist = this.state.trucks.find((i)=>{
+                      return i.batch.batchId === item.batchId
+                    })
+                    console.log(exist);
+                    if(exist) return null;
                     return(
                       <option key={item.batchDocId} value={index}>{item.batchId}</option>
                     )

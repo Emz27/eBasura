@@ -264,11 +264,11 @@ export default class BatchesCRUD extends Component{
   }
   render() {
     return (
-      <Row className="mt-5">
+      <div className="col d-flex">
         <Col>
           <Gmaps
             width={'100%'}
-            height={'600px'}
+            height={'100%'}
             lat={14.61881}
             lng={121.057171}
             zoom={12}
@@ -347,7 +347,7 @@ export default class BatchesCRUD extends Component{
           </Form>
           
         </Col>
-      </Row>
+      </div>
       
     );
   }

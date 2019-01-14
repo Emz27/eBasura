@@ -97,6 +97,10 @@ android {
     compileSdkVersion rootProject.ext.compileSdkVersion
     buildToolsVersion rootProject.ext.buildToolsVersion
 
+    compileOptions {
+        sourceCompatibility JavaVersion.VERSION_1_8
+        targetCompatibility JavaVersion.VERSION_1_8
+    }
     defaultConfig {
         applicationId "com.eBasuraThesis.eBasuraNavigation"
         minSdkVersion rootProject.ext.minSdkVersion
@@ -153,6 +157,8 @@ configurations.all {
     }
 }
 dependencies {
+    implementation project(':WebRTCModule')
+
     implementation project(':react-native-svg')
     implementation project(':react-native-linear-gradient')
 

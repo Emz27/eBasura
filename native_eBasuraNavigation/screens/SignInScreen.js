@@ -11,10 +11,12 @@ import {
   Text,
   PermissionsAndroid ,
   NetInfo,
+  ImageBackground
 } from 'react-native';
 
-
+import Images from './../assets/index';
 import firebase from 'react-native-firebase';
+import images from './../assets/index';
 
 const screenName = "SignInScreen";
 const log = (message = "", data = {})=>{
@@ -97,23 +99,32 @@ export default class SignInScreen extends React.Component {
   }
   render() {
     return (
+      <ImageBackground source={images.loginBackground} style={{width: '100%', height: '100%'}}>
       <View style={styles.container}>
         <TextInput
-          style={{height: 40, borderColor: 'gray', borderWidth: 1}}
+          style={{
+            height: 40, width: 120, borderColor: 'gray', borderWidth: 1, textAlign: 'center',
+            backgroundColor: "white"
+          }}
           onChangeText={(text) => this.onInputChange({userId:text})}
           value={this.state.userId}
-          placeholder="User ID"
+          placeholder="Username"
         />
-        <Text>{this.state.userIdError}</Text>
+        <Text style={{color: "white", paddingTop: 5, paddingBottom: 10}}>{this.state.userIdError}</Text>
         <TextInput
-          style={{height: 40, borderColor: 'gray', borderWidth: 1}}
+          style={{
+            height: 40, width: 120, borderColor: 'gray', borderWidth: 1, textAlign: 'center',
+            backgroundColor: "white"
+          }}
           onChangeText={(text) => this.onInputChange({password:text})}
           value={this.state.password}
+          secureTextEntry={true}
           placeholder="Password"
         />
-        <Text>{this.state.passwordError}</Text>
+        <Text style={{color: "white", paddingTop: 5, paddingBottom: 10}}>{this.state.passwordError}</Text>
         <Button title="Sign in!" onPress={this.onSubmit} />
       </View>
+      </ImageBackground>
     );
   }
 
