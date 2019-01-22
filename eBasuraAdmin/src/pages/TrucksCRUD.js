@@ -126,6 +126,17 @@ export default class TrucksCRUD extends React.Component {
   onDelete = async (item)=>{
     var batch = firestore().batch();
 
+    var collectorResults = await firestore().collection("Users").where("truckDocId","==",item.truckDocId).get();
+    for(var user of collectorResults.docs){
+      batch.update(
+      firestore().collection("Users").doc(user.id),
+        {
+          truckDocId: "",
+          truckId: "", 
+        }
+      );
+    }
+
     this.state.collectors.forEach((user)=>{
       batch.update(
         firestore().collection("Users").doc(user.userDocId),
@@ -143,11 +154,6 @@ export default class TrucksCRUD extends React.Component {
     })
     batch.delete(firestore().collection("Trucks").doc(item.truckDocId));
     await batch.commit();
-    await firestore().collection("Users").where("truckDocId","==",item.truckDocId)
-    .update({
-      truckDocId: "",
-      truckId: "", 
-    })
     this.setState({
       truckDocId: "",
       truckId: "", 

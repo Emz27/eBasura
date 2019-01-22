@@ -16,10 +16,13 @@ class App extends Component {
       <BrowserRouter>
           <div id="container" className="d-flex flex-column">
             <NavigationBar />
-            <Route path="/monitor" component={Monitor} />
-            <Route path="/users" component={UsersCRUD} />
-            <Route path="/batches" component={BatchesCRUD} />
-            <Route path="/trucks" component={TrucksCRUD} />
+            <Switch>
+              <Route path="/monitor" component={Monitor} />
+              <Route path="/users" component={UsersCRUD} />
+              <Route path="/batches" component={BatchesCRUD} />
+              <Route path="/trucks" component={TrucksCRUD} />
+              <Route component={Monitor}/>
+            </Switch>
           </div>
       </BrowserRouter>
     );

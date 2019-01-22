@@ -1,10 +1,17 @@
 
 import React, { Component } from 'react'
-import { Modal, TextInput, AsyncStorage, Text, Animated,Button, StyleSheet, View, StatusBar, Dimensions, Alert } from 'react-native'
+import { Modal, TextInput, TouchableOpacity, AsyncStorage, Text, Animated,Button, StyleSheet, View, StatusBar, Dimensions, Alert } from 'react-native'
 import MapView, { Marker } from 'react-native-maps'
 
 import Colors from './../constants/Colors.js'
 import firebase from 'react-native-firebase';
+
+import SimpleLineIcons from 'react-native-vector-icons/SimpleLineIcons';
+import MaterialCommunityIcons from 'react-native-vector-icons/MaterialCommunityIcons';
+import Entypo from 'react-native-vector-icons/Entypo';
+
+const DetailIcon = (<MaterialCommunityIcons name="information-variant" size={15} color="black" />)
+const FeedbackIcon = (<Entypo name="chat" size={15} color="black" />)
 
 export default class PickupMap extends Component {
   constructor(props){
@@ -24,6 +31,24 @@ export default class PickupMap extends Component {
   static navigationOptions = {
     header: null
   };
+  componentDidMount() {
+    this.notificationDisplayedListener = firebase.notifications().onNotificationDisplayed((notification) => {
+        // Process your notification as required
+        // ANDROID: Remote notifications do not contain the channel ID. You will have to specify this manually if you'd like to re-display the notification.
+    });
+    this.notificationListener = firebase.notifications().onNotification((notification) => {
+        // Process your notification as required
+        notification.android.setChannelId('channelId');
+        notification.setSound("default");
+        notification.android.setPriority(firebase.notifications.Android.Priority.High);
+        firebase.notifications().displayNotification(notification);
+    });
+  }
+
+  componentWillUnmount() {
+      this.notificationDisplayedListener();
+      this.notificationListener();
+  }
   openPickupInfo(){
     this.setState({isPickupInfoOpen: true}, async ()=>{
       Animated.spring(this.pickupInfoTranslateY,
@@ -109,7 +134,7 @@ export default class PickupMap extends Component {
                     )
                     firebase.firestore().collection("Feedbacks").add({
                       userDocId: this.state.user.userDocId,
-                      message: this.state.residentRemarks,
+                      message: feedback,
                       pickupDocId: this.state.selectedPickup.pickupDocId,
                       dateTime: new Date(),
                     });
@@ -130,25 +155,58 @@ export default class PickupMap extends Component {
         </Modal>
         <View style={styles.header}></View>
         <Animated.View style={[ styles.pickupInfo, {translateY: this.pickupInfoTranslateY} ]}>
-          <View style={styles.pickupInfoContentBox}>
-              <Text style={{ fontWeight: "bold", fontSize:10}}>{"Address"}</Text>
-              <Text style={{ fontSize:8 }}>{this.state.selectedPickup.address}</Text>
+          <View style={{flex: 1, flexDirection: "row"}}>
+            <View style={styles.pickupInfoContentBox}>
+                <Text style={{ fontWeight: "bold", fontSize:10}}>{"Address"}</Text>
+                <Text style={{ fontSize:8 }}>{this.state.selectedPickup.address}</Text>
+            </View>
+            <View style={styles.pickupInfoButtonBox}>
+              <TouchableOpacity
+                style={{
+                    borderWidth:1,
+                    borderColor:'rgba(0,0,0,0.2)',
+                    alignItems:'center',
+                    justifyContent:'center',
+                    width:30,
+                    height:30,
+                    backgroundColor:'#fff',
+                    borderRadius:30,
+                    elevation:2,
+                    marginHorizontal:5,
+                  }}
+                  onPress={()=>{
+                    //this.props.navigation.navigate('PickupDetail',{pickup:item});
+                  }}
+                >
+                {DetailIcon}
+              </TouchableOpacity>
+              <TouchableOpacity
+                style={{
+                    borderWidth:1,
+                    borderColor:'rgba(0,0,0,0.2)',
+                    alignItems:'center',
+                    justifyContent:'center',
+                    width:30,
+                    height:30,
+                    backgroundColor:'#fff',
+                    borderRadius:30,
+                    elevation:2,
+                    marginHorizontal:5,
+                  }}
+                  onPress={()=>{
+                    this.setState({
+                      modalVisible: !this.state.modalVisible, 
+                      residentRemarks: "",
+                    })
+                  }}
+                >
+                {FeedbackIcon}
+              </TouchableOpacity>
+              <View style={{height: 5}}/>
+            </View>
           </View>
-          <View style={styles.pickupInfoButtonBox}>
-            <Button
-              onPress={()=>{
-              }}
-              title="Send Feedback"
-              style={buttonStyle}
-              onPress={()=>{
-                this.setState({
-                  modalVisible: !this.state.modalVisible, 
-                  residentRemarks: "",
-                })
-              }}
-            />
-            <View style={{height: 5}}/>
-            {(this.state.selectedPickup.pickupDocId != this.state.user.pickupDocId)
+          <View>
+          {(this.state.selectedPickup.pickupDocId != this.state.user.pickupDocId)
             ?<Button
               onPress={async ()=>{
                 var user = {...this.state.user};  
@@ -252,9 +310,8 @@ var styles = StyleSheet.create({
   },
   pickupInfo:{
     position: "absolute",
-    flexDirection:"row",
-    height: 100,
-    top: 10,
+    height: 120,
+    top: 20,
     left: 10,
     right: 10,
     backgroundColor: "white",
@@ -277,6 +334,7 @@ var styles = StyleSheet.create({
   pickupInfoButtonBox:{
     height:"100%", 
     width:"40%",
+    flexDirection: "row",
     borderBottomEndRadius: 10, 
     borderTopEndRadius: 10,
     backgroundColor: "white",

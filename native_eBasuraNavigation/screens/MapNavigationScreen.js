@@ -204,6 +204,13 @@ export default class MapNavigationScreen extends React.Component {
     var iceCandidates = [];
 
     this.dataChannel = this.peerConnection.createDataChannel("sendData",{negotiated: true, id: 0});
+
+    this.dataChannel.onopen = (event)=>{
+      this.sendDataToPeer({
+        paths: this.state.paths,
+        collectorPos: this.state.collectorPos,
+      })
+    };
     
     this.peerConnection.onicecandidate = async (event)=>{
       // send event.candidate to peer
@@ -325,6 +332,7 @@ export default class MapNavigationScreen extends React.Component {
       isPickupLoading: false,
     },
     ()=>{
+      this.sendDataToPeer({ paths: paths });
       this.map.fitToCoordinates(paths, {
         edgePadding: { top: 10, right: 10, bottom: 10, left: 10 },
         animated: true,
@@ -599,7 +607,6 @@ export default class MapNavigationScreen extends React.Component {
       collectedCollections,
       pendingCollections,
     },async ()=>{
-      this.sendDataToPeer(this.state);
       this.reRoute(pendingCollections)
       AsyncStorage.setItem("collectionsToday",JSON.stringify([ ...this.state.collectedCollections, ...this.state.pendingCollections,...this.state.skippedCollections]));    });
   }
@@ -635,7 +642,6 @@ export default class MapNavigationScreen extends React.Component {
       skippedCollections,
       pendingCollections,
     },async ()=>{
-      this.sendDataToPeer(this.state);
       this.reRoute(pendingCollections);
       AsyncStorage.setItem("collectionsToday",JSON.stringify([ ...this.state.collectedCollections, ...this.state.pendingCollections,...this.state.skippedCollections]));
     });
@@ -671,7 +677,6 @@ export default class MapNavigationScreen extends React.Component {
       skippedCollections,
       pendingCollections,
     },async ()=>{
-      this.sendDataToPeer(this.state);
       this.reRoute(pendingCollections);
       AsyncStorage.setItem("collectionsToday",JSON.stringify([ ...this.state.collectedCollections, ...this.state.pendingCollections,...this.state.skippedCollections]));    });
   }
@@ -699,7 +704,7 @@ export default class MapNavigationScreen extends React.Component {
     this.setState({
       currentLocation: collectorPos
     },async ()=>{
-      this.sendDataToPeer(this.state);      
+      this.sendDataToPeer({ collectorPos });      
       if( !this.state.isReachedPickup && !this.state.isReachedAlert && getDistance(collectorPos, this.state.alertLocation) < METERS_TO_NOTIFY ){
         // reached notify point
         this.setState({isReachedAlert: true, isAlertLoading: true}, this.alertSubscribers);
