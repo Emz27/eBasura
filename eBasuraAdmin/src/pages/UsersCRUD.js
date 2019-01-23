@@ -187,7 +187,7 @@ export default class UsersCRUD extends React.Component {
              >Save</Button>
           </Form>
         </div>
-        <div className="col">
+        <div className="col pl-5">
           <h4>User List</h4>
           <ListGroup flush>
             {
@@ -206,6 +206,9 @@ export default class UsersCRUD extends React.Component {
                   </Row>
                 </ListGroupItem>
               )
+            }
+            {
+              (this.state.users.length === 0)?"No User Records":null
             }
           </ListGroup>
         </div>

@@ -23,21 +23,39 @@ exports.sendPushNotification = functions.firestore
         sound: "default",
       }
     }
-    const subscribers = await admin.firestore().collection("Users").where("pickupDocId","==", data.pickupDocId).get();
     let sucess = 0;
     let fail = 0;
-    for( const user of subscribers.docs){
-      if(user.data().pushToken){
-        try{
-          await admin.messaging().sendToDevice(user.data().pushToken, payload);
-          sucess++;
+    if(data.truckDocId){
+      const driverResult = await admin.firestore().collection("Users").where("truck.truckDocId","==",data.truckDocId).get();
+      for( const user of driverResult.docs){
+        if(user.data().pushToken){
+          try{
+            await admin.messaging().sendToDevice(user.data().pushToken, payload);
+            sucess++;
 
-        }
-        catch(e){
-          fail++;
+          }
+          catch(e){
+            fail++;
+          }
         }
       }
     }
+    else {
+      const subscribers = await admin.firestore().collection("Users").where("pickupDocId","==", data.pickupDocId).get();
+      for( const user of subscribers.docs){
+        if(user.data().pushToken){
+          try{
+            await admin.messaging().sendToDevice(user.data().pushToken, payload);
+            sucess++;
+
+          }
+          catch(e){
+            fail++;
+          }
+        }
+      }
+    }
+    
     await admin.firestore().collection("Notifications").doc(event.id).update({
       sucess,
       fail,

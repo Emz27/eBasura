@@ -252,6 +252,13 @@ export default class AuthLoadingScreen extends React.Component {
               collectors: data.collectors.map((c)=>c.userId),
             }
           );
+          batchProcess.update(
+            firebase.firestore().collection("PickupLocations").doc(pickup.pickupDocId),
+            {
+              collectionDateTime: new Date(),
+              status: "pending",
+            }
+          );
         });
         console.log("Database commit");
         try{

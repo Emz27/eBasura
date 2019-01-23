@@ -6,7 +6,8 @@ import MapView, { Marker } from 'react-native-maps'
 import Colors from './../constants/Colors.js'
 import firebase from 'react-native-firebase';
 
-import SimpleLineIcons from 'react-native-vector-icons/SimpleLineIcons';
+import moment from 'moment'
+
 import MaterialCommunityIcons from 'react-native-vector-icons/MaterialCommunityIcons';
 import Entypo from 'react-native-vector-icons/Entypo';
 
@@ -43,6 +44,23 @@ export default class PickupMap extends Component {
         notification.android.setPriority(firebase.notifications.Android.Priority.High);
         firebase.notifications().displayNotification(notification);
     });
+    this.pickupLocationListener = firebase.firestore().collection("PickupLocations").onSnapshot(( snapShot )=>{
+      var selectedPickup = {...this.state.selectedPickup};
+      var pickupLocations = [];
+      snapShot.docs.forEach(( doc )=>{
+        var data = doc.data();
+        var pickup = {
+          pickupDocId: doc.id,
+          ...data,
+        };
+        if( selectedPickup.pickupDocId === doc.id) selectedPickup = pickup;
+        pickupLocations.push(pickup)
+      })
+      this.setState({
+        pickupLocations: pickupLocations,
+        selectedPickup: selectedPickup,
+      })
+    })
   }
 
   componentWillUnmount() {
@@ -159,6 +177,13 @@ export default class PickupMap extends Component {
             <View style={styles.pickupInfoContentBox}>
                 <Text style={{ fontWeight: "bold", fontSize:10}}>{"Address"}</Text>
                 <Text style={{ fontSize:8 }}>{this.state.selectedPickup.address}</Text>
+                <Text style={{ fontWeight: "bold", fontSize:10}}>{"Status: "}
+                  <Text style={{ fontSize:12 }}>
+                    {
+                      (this.state.selectedPickup.collectionDateTime && moment(Date.now()).isSame(this.state.selectedPickup.collectionDateTime,'day'))?this.state.selectedPickup.status: "pending"
+                    }
+                  </Text>
+                </Text>
             </View>
             <View style={styles.pickupInfoButtonBox}>
               <TouchableOpacity
@@ -175,7 +200,7 @@ export default class PickupMap extends Component {
                     marginHorizontal:5,
                   }}
                   onPress={()=>{
-                    //this.props.navigation.navigate('PickupDetail',{pickup:item});
+                    this.props.navigation.navigate('PickupDetail',{pickup:this.state.selectedPickup});
                   }}
                 >
                 {DetailIcon}
@@ -278,7 +303,9 @@ export default class PickupMap extends Component {
           pinColor={(pickup.pickupDocId != this.state.user.pickupDocId)?Colors.purple:"#00ffaa"}
           tracksViewChanges={false}
           onPress={()=>{
-            this.setState({selectedPickup: pickup}, this.openPickupInfo)
+            this.setState({selectedPickup: pickup}, ()=>{
+              this.openPickupInfo();
+            })
           }}
         />
       );

@@ -38,8 +38,21 @@ var statusLabel = ( status )=>{
 }
 
 const PickupInfo = posed.div({
-  open: { opacity: 1 },
-  close: { opacity: 0 },
+  open: {
+    x: 0,
+    transition: {
+      duration: 150,
+      ease: 'linear'
+    }
+  },
+  close: {
+    x: -300,
+    transition: {
+      duration: 150,
+      ease: 'linear'
+    }
+  },
+  
 });
 
 const MapLegend = posed.div({
@@ -47,6 +60,40 @@ const MapLegend = posed.div({
   visible: { opacity: 1 }
 })
 
+const TruckItem = posed.div({
+  hoverable: true,
+  init: { x: 0},
+  hover: { x: -10 },
+});
+
+const TruckPanel = posed.div({
+  open:{
+    opacity: 1,
+    zIndex: 9999,
+  },
+  close:{
+    opacity: 0,
+    zIndex: -1,
+  }
+});
+const TruckList = posed.div({
+  open:{
+    opacity: 1,
+    zIndex: 9999,
+  },
+  close:{
+    opacity: 0,
+    zIndex: -1,
+  }
+});
+const MessageContainer = posed.div({
+  open: {
+    y: 0
+  },
+  close: {
+    y: 300
+  }
+})
 const VideoContainer = posed.div({
   open: {
     y: 0
@@ -75,9 +122,14 @@ export default class Monitor extends React.Component {
       videoSrc: null,
       pickupLocations: [],
       selectedPickup: {},
+      collections: [],
       pickupFeedbacks: [],
       infoPose: "close",
       videoPose: "close",
+      truckListPose: "open",
+      truckPanelPose: "close",
+      messagePose: "close",
+
 
       paths: [],
       collectorPos: {
@@ -85,7 +137,7 @@ export default class Monitor extends React.Component {
         longitude: 0,
       }
     }
-  
+
     this.connections = []
 
   }
@@ -158,8 +210,11 @@ export default class Monitor extends React.Component {
     
   }
   async onSelect(item){
+
     this.setState({
       isloading: true,
+      truckDocId: item.truckDocId,
+      truckId: item.truckId,
     },async ()=>{
       if(item.status === "new"){
         try{
@@ -171,6 +226,7 @@ export default class Monitor extends React.Component {
     })
   }
   async resetConnection( conn ){
+    console.log("reset");
     try{
       conn.peerConnection.close(); 
     }
@@ -216,17 +272,23 @@ export default class Monitor extends React.Component {
             longitutude: 0,
             latitude: 0,
           },
-          videoPose: "close"
+          videoPose: "close", 
+          messagePose: "close",
+          truckListPose: "open", 
+          truckPanelPose: "close",
         })
       }
       if(event.target.iceConnectionState === "connected"){
-        this.setState({ videoPose: "open" })
+        this.setState({ videoPose: "open",messagePose: "open", truckListPose: "close", truckPanelPose: "open"  })
       }
       else if(event.target.iceConnectionState === "failed"){
         try{
           for( let conn of this.connections){
             await this.resetConnection( conn );
           }
+          await firestore().collection("Trucks").doc(this.state.truckDocId).update({
+            status: "failed"
+          })
         }
         catch(e){console.log(e.message)}
       }
@@ -419,6 +481,22 @@ export default class Monitor extends React.Component {
   }
   
   render (){
+    var truckCollections = this.state.pickupLocations.filter((pickup)=>{
+      return pickup.truckDocId === this.state.truckDocId;
+    })
+
+    var logCollections = [...truckCollections];
+    logCollections.forEach((item, index)=>{
+      item.dateTimeLog = item.dateTime.toDate();
+      if(item.status === "skipped") item.dateTimeLog = item.dateTimeSkipped.toDate();
+      else if(item.status === "collected") item.dateTimeLog = item.dateTimeCollected.toDate();
+    });
+    logCollections.sort((a,b)=>{
+      return new Date(b.dateTimeLog) - new Date(a.dateTimeLog);
+    })
+    logCollections = logCollections.filter((item)=>{
+      return (item.status === "skipped" || item.status === "collected")
+    })
     return (
       <div className="col d-flex">
         <div 
@@ -426,10 +504,9 @@ export default class Monitor extends React.Component {
           className="col p-0 m-0">
           <PickupInfo className="shadow" pose={this.state.infoPose} style={{
             position: "absolute",
-            height: 400,
-            width: 200,
-            top: 50,
-            left: 20,
+            height: "100%",
+            width: 300,
+            left: 0,
             padding: 15,
             backgroundColor: "white",
             zIndex: 9000,
@@ -443,20 +520,41 @@ export default class Monitor extends React.Component {
                 <b>Status:</b> {this.state.selectedPickup.status}
               </div>
             </div>
+            <hr />
+            <div>
+              <b>Resident Feedbacks</b>
+            </div>
+            <ListGroup flush
+              style={{
+                width: "270px",
+                maxHeight: "400px",
+                marginBottom: "10px",
+                overflow:"scroll",
+              }}
+            
+            >
             {
-              this.state.pickupFeedbacks.map((feedback)=>{
-                return (<div key={feedback.feedbackDocId}>
-                  <div className="d-flex">
-                    <div className="col">{feedback.message}</div>
-                  </div>
-                </div>)
-              })
-            }
-            <ListGroup flush>
-                {
-                  
-                }
-              </ListGroup>
+              this.state.pickupFeedbacks.map((feedback)=>
+                  <ListGroupItem
+                    key={feedback.feedbackDocId}>
+                    <div
+                      style={{
+                        height: "30px"
+                      }}>
+                    {feedback.message}
+                    </div>
+                    <div 
+                      style={{
+                        height: "10px"
+                      }}
+                    >
+                      <small style={{fontSize: 9, flexDirection: "column-reverse"}}>{moment(feedback.dateTime).fromNow()}</small>
+                    </div>
+                  </ListGroupItem>
+
+                )
+              }
+            </ListGroup>
           </PickupInfo>
           <VideoContainer 
             pose={this.state.videoPose} 
@@ -474,6 +572,45 @@ export default class Monitor extends React.Component {
           >
             <video id="video" style={{height: "100%", width: "100%"}} playsInline autoPlay ></video>
           </VideoContainer>
+          <MessageContainer 
+            pose={this.state.messagePose} 
+            style={{
+              position: "absolute",
+              bottom: 20,
+              right: 400,
+              zIndex: 9000,
+              height: 55,
+              width: 300,
+              padding: 7,
+              backgroundColor: "white",
+              boxShadow: "#777 0px -10px 5px -6px",
+
+            }}
+            className="d-flex flex-row"
+          >
+            <div class="input-group mb-1">
+              <input
+                onChange={(e)=>this.setState({messageToDriver: e.target.value})}
+                value={this.state.messageToDriver} type="text" class="form-control" placeholder="Send Alert to Driver"/>
+              <div class="input-group-append">
+                <button 
+                  onClick={async ()=>{
+                    try{
+                      await firestore().collection("Notifications").add({
+                        title: "Alert from admin",
+                        body: this.state.messageToDriver,
+                        truckDocId: this.state.truckDocId,
+                      });
+                      alert("Alert to driver sent!\nalert message: "+ this.state.messageToDriver);
+                      this.setState({messageToDriver: ""});
+                    }
+                    catch(e){console.log(e.message)}
+                    
+                  }}
+                class="btn btn-primary" type="button">Send</button>
+              </div>
+            </div>
+          </MessageContainer>
           <MapLegend 
             pose={this.state.isInfoOpen} 
             style={{
@@ -520,37 +657,154 @@ export default class Monitor extends React.Component {
               { this.pickupMarkers() }
             </Gmaps>
         </div>
-        <div className="col-md-3 d-flex flex-column p-0" 
+        <div className="p-0" 
           style={{
             boxShadow: "#777 -10px 0px 5px -6px",
             height: "100%",
-            width: "500px",
+            width: "280px",
           }}
         >
-          <div className="col">
-          
-            <ListGroup flush>
+            <TruckList 
+             pose={this.state.truckListPose}
+             >
+             <div style={{margin: "25px"}}><h2>Truck List</h2></div>
+            <ListGroup flush
+              style={{
+                flex: 1,
+                height: "100%",
+                width: "270px",
+              }}
+            >
             
               {
                 this.state.trucks.map((truck)=>
-                
-                    <ListGroupItem key={truck.truckDocId}>
-                      
-                          <div className="d-flex align-items-center ">
+                <TruckItem>
+                    <ListGroupItem
+                    key={truck.truckDocId}>
+                        
+                          
+                        <div className="d-flex align-items-center ">
                               { statusLabel(truck.status) }
 
-                            <div>{truck.truckId}</div>
-                            <ButtonGroup size="sm" className="ml-auto">
-                              <Button
-                                disabled={this.state.isLoading}
-                                onClick={()=>{this.onSelect(truck)}}>select</Button>
-                            </ButtonGroup>
+                            <div className="ml-4">{truck.truckId}</div>
+                            {
+                              (truck.status === "new")
+                              ?<ButtonGroup size="sm" className="ml-auto">
+                                <Button
+                                  disabled={this.state.isLoading}
+                                  onClick={()=>{this.onSelect(truck)}}>Connect</Button>
+                              </ButtonGroup>
+                              :null
+                            }
+                            
                           </div>
+                          
                     </ListGroupItem>
+                    </TruckItem>
+
                 )
               }
             </ListGroup>
-          </div>
+            </TruckList>
+            {
+              (truckCollections.length > 0)
+              ?<TruckPanel pose={this.state.truckPanelPose}
+              style={{
+                position:"absolute",
+                top:0,
+                bottom:0,
+                width: "280px",
+              }}
+              className="d-flex flex-column"
+            >
+
+              <div className="col">
+              <div style={{margin: "15px"}}><b>{"Truck ID: "}</b>{this.state.truckId}</div>
+              <hr />
+              <div style={{margin: "15px"}}>
+                <div><b>Status</b></div>
+                <div>Total: {truckCollections.length}</div>
+                <div>Collected: {
+                  truckCollections.reduce((accumulator, currentValue) =>{
+                    if(currentValue.status === "collected"){
+                      return accumulator + 1;
+                    }
+                    return accumulator;
+                  },0)
+                }</div>
+                <div>Skipped: {
+                  truckCollections.reduce((accumulator, currentValue) =>{
+                    if(currentValue.status === "skipped"){
+                      return accumulator + 1;
+                    }
+                    return accumulator;
+                  },0)
+                }</div>
+                <div>Pending: {
+                  truckCollections.reduce((accumulator, currentValue) =>{
+                    if(currentValue.status === "pending"){
+                      return accumulator + 1;
+                    }
+                    return accumulator;
+                  },0)
+                }</div>
+              </div>
+              
+              <hr />
+              <div style={{margin: "15px"}}><b>Trip Logs</b></div>
+            <ListGroup flush
+              style={{
+                width: "270px",
+                maxHeight: "170px",
+                marginBottom: "10px",
+                overflow:"scroll",
+              }}
+            >
+              {
+                logCollections.map((item)=>{
+                  if(item.status === "collected"){
+                    return (
+                    <ListGroupItem style={{fontSize: 9}} key={item.collectionDocId}>
+                    - <b>Collected Pickup</b> - {moment(item.dateTimeLog).fromNow()}
+                    </ListGroupItem>
+                    )
+                  }
+                  else {
+                    return(
+                    <ListGroupItem style={{fontSize: 9}} key={item.collectionDocId}>
+                    - <b>Skipped Pickup</b> - {moment(item.dateTimeLog).fromNow()}
+                    </ListGroupItem>
+                    )
+                  }
+                })
+              }
+              {
+                <ListGroupItem  style={{fontSize: 9}} key={"alsdjflakdfj"}>
+                  - <b>Initiate Trip</b> - {moment(truckCollections[0].dateTime.toDate()).fromNow()}
+                </ListGroupItem>
+              }
+              
+            </ListGroup>
+              </div>
+              <div>
+                <button
+                  onClick={async ()=>{
+                    try{
+                      for( let conn of this.connections){
+                        await this.resetConnection( conn );
+                      }
+                    }
+                    catch(e){console.log(e.message)}
+                  }}
+                type="button" className="btn btn-block btn-danger">{"Disconnect"}</button>
+              </div>
+              
+            </TruckPanel>
+              :null
+            }
+            
+            
+            
 
         </div>
       </div>

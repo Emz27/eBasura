@@ -276,7 +276,13 @@ export default class TrucksCRUD extends React.Component {
               </Input>
             </FormGroup>
             <FormGroup>
-              <ListGroup flush>
+              <ListGroup 
+              style={{
+                maxHeight: "350px",
+                marginBottom: "10px",
+                overflow:"scroll",
+              }}
+              flush>
                 {
                   this.state.collectors.map((user, index)=>
                     <ListGroupItem key={user.userDocId}>
@@ -298,10 +304,15 @@ export default class TrucksCRUD extends React.Component {
              >Save</Button>
           </Form>
         </div>
-        <div className="col">
-          <Row> 
-            <Row>
-              <ListGroup flush>
+        <div className="col pl-5">
+          <h4>Truck List</h4>
+              <ListGroup
+                style={{
+                  maxHeight: "350px",
+                  marginBottom: "10px",
+                  overflow:"scroll",
+                }}
+               flush>
                 {
                   this.state.trucks.map((truck)=>
                     <ListGroupItem key={truck.truckDocId}>
@@ -319,11 +330,19 @@ export default class TrucksCRUD extends React.Component {
                     </ListGroupItem>
                   )
                 }
+                {
+                  (this.state.trucks.length === 0)?"No Available Trucks":null
+                }
               </ListGroup>
-            </Row>
-          </Row>
-          <Row>
-              <ListGroup flush>
+              <br />
+            <h4>Driver List</h4>
+              <ListGroup
+                style={{
+                  maxHeight: "280px",
+                  marginBottom: "10px",
+                  overflow:"scroll",
+                }}
+                flush>
                 {
                   this.state.users.map((user, index)=>
                     <ListGroupItem key={user.userDocId}>
@@ -336,8 +355,11 @@ export default class TrucksCRUD extends React.Component {
                     </ListGroupItem>
                   )
                 }
+                {
+                  (this.state.users.length === 0)?"No Available Drivers":null
+                }
               </ListGroup>
-          </Row>
+
           
         </div>
       </div>

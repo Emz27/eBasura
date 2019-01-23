@@ -287,16 +287,22 @@ export default class BatchesCRUD extends Component{
             }
           </Gmaps>
         </Col>
-        <Col>
+        <Col className ="p-4">
+        <h4>Batch List</h4>
           <Form>
             <FormGroup>
-              <ListGroup flush>
+              <ListGroup
+              style={{
+                maxHeight: "280px",
+                marginBottom: "10px",
+                overflow:"scroll",
+              }}
+              flush>
                 {
                   this.state.batches.map((item, index)=>
                     <ListGroupItem key={item.batchId}>
                       <Row>
                         <div>{item.batchId}</div>
-                        <div>
                           <ButtonGroup size="sm" className="ml-auto">
                             <Button
                               disabled={this.state.isLoading}
@@ -305,13 +311,17 @@ export default class BatchesCRUD extends Component{
                               disabled={this.state.isLoading}
                               onClick={()=>{this.onDelete(item)}}>Delete</Button>
                           </ButtonGroup>
-                        </div>
                       </Row>
                     </ListGroupItem>
                   )
                 }
+                {
+                  (this.state.batches.length === 0)?"No Batch Records":null
+                }
               </ListGroup>
             </FormGroup>
+            <hr />
+            <h4>Create Batch</h4>
             <FormGroup>
               <Label for="batchId">Batch ID</Label>
               <Input required type="text" name="batchId" id="batchId" placeholder="" 
@@ -320,8 +330,17 @@ export default class BatchesCRUD extends Component{
                 onChange={(event)=>this.onInputChange({batchId: event.target.value})}/>
               <FormFeedback>{this.state.batchIdError}</FormFeedback>
             </FormGroup>
+            <Button disabled={this.state.isLoading}
+              onClick={(event)=>this.onSave(event)}
+             >Save</Button>
             <FormGroup>
-              <ListGroup flush>
+              <ListGroup
+                style={{
+                  maxHeight: "280px",
+                  marginBottom: "10px",
+                  overflow:"scroll",
+                }}
+              flush>
                 {
                   this.state.pickupLocations.map((item, index)=>
                     <ListGroupItem key={item.address}>
@@ -341,9 +360,7 @@ export default class BatchesCRUD extends Component{
               </ListGroup>
             </FormGroup>
             <hr />
-            <Button disabled={this.state.isLoading}
-              onClick={(event)=>this.onSave(event)}
-             >Save</Button>
+            
           </Form>
           
         </Col>

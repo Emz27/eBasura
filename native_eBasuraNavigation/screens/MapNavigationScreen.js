@@ -601,7 +601,8 @@ export default class MapNavigationScreen extends React.Component {
 
     await firebase.firestore().collection("Collections").doc(pickup.key)
       .update({status: "collected", dateTimeCollected: new Date()});
-
+    await firebase.firestore().collection("PickupLocations").doc(pickup.pickupDocId)
+      .update({status: "collected"});
     console.log(this.state.currentPickup);
     this.setState({
       collectedCollections,
@@ -631,7 +632,9 @@ export default class MapNavigationScreen extends React.Component {
     skippedCollections.push(pickup);
     
     await firebase.firestore().collection("Collections").doc(pickup.key)
-      .update({status: "skipped", dateTimeSkipped: new Date()});
+    .update({status: "skipped", dateTimeSkipped: new Date()});
+    await firebase.firestore().collection("PickupLocations").doc(pickup.pickupDocId)
+    .update({status: "skipped"});
     await this.sendPushNotification({
       title: "Trash Collection Update", 
       body: "Truck collector wont be collecting trash in your location today. Sorry for inconvenience",
@@ -668,6 +671,8 @@ export default class MapNavigationScreen extends React.Component {
     
     await firebase.firestore().collection("Collections").doc(pickup.key)
       .update({status: "pending", dateTimeUnskipped: new Date()});
+    await firebase.firestore().collection("PickupLocations").doc(pickup.pickupDocId)
+    .update({status: "pending"});
     await this.sendPushNotification({
       title: "Trash Collection Update", 
       body: "Truck collector will collect trash in your location within this day. Please wait for further notification",

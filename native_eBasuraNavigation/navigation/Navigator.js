@@ -77,9 +77,29 @@ class Navigator extends React.Component{
         isLogged: false,
         navigatorRef: {}
       };
+      this.notificationDisplayedListener = ()=>{
+
+      }
+      this.notificationListener = ()=>{
+
+      }
+
     }
     loadUser = async ()=>{
       try{  
+        this.notificationDisplayedListener();
+        this.notificationListener();
+        this.notificationDisplayedListener = firebase.notifications().onNotificationDisplayed((notification) => {
+          // Process your notification as required
+          // ANDROID: Remote notifications do not contain the channel ID. You will have to specify this manually if you'd like to re-display the notification.
+        });
+        this.notificationListener = firebase.notifications().onNotification((notification) => {
+            // Process your notification as required
+            notification.android.setChannelId('channelId');
+            notification.setSound("default");
+            notification.android.setPriority(firebase.notifications.Android.Priority.High);
+            firebase.notifications().displayNotification(notification);
+        });
         this.user = JSON.parse(await AsyncStorage.getItem('user'));
         this.setState({ userId: this.user.userId })
       }
@@ -89,6 +109,10 @@ class Navigator extends React.Component{
     }
     componentDidMount(){
 
+    }
+    componentWillUnmount() {
+      this.notificationDisplayedListener();
+      this.notificationListener();
     }
     handlePressIn = ()=>{
       var anims = []
