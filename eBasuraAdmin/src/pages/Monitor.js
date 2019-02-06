@@ -191,9 +191,6 @@ export default class Monitor extends React.Component {
       }
       this.setState({ trucks });
     });
-    console.log(moment().startOf('day').toString());
-    console.log(moment().endOf('day').toString());
-    
     this.collectionListener = await firestore().collection("Collections")
     .where("dateTime",">",new Date(moment().startOf('day').toString()))
     .where("dateTime","<",new Date(moment().endOf('day').toString()))
@@ -443,17 +440,17 @@ export default class Monitor extends React.Component {
   }
   pickupMarkers = ()=>{
     return this.state.pickupLocations.map((item, index)=>{
-      var label = ""
-      if(item.status === "pending") label = "P"
-      else if(item.status === "collected") label = "C"
-      else if(item.status === "skipped") label = "S"
+      var icon;
+      if(item.status === "pending") icon = pendingIcon
+      else if(item.status === "collected") icon = collectedIcon
+      else if(item.status === "skipped") icon = skippedIcon
 
       return (
         <Marker
           key={item.collectionDocId}
           lat={item.location.latitude}
           lng={item.location.longitude}
-          label={label}
+          icon={icon}
           onClick={()=>{
             console.log("collectionDocId: "+item.collectionDocId);
             console.log("pickupDocId: "+ item.pickupDocId);

@@ -38,9 +38,6 @@ export default class AuthLoadingScreen extends React.Component {
       console.log(error);
     }
   }
-  async componentWillMount() {
-
-  }
   // Fetch the token from storage then navigate to our appropriate place
   async _bootstrapAsync(){
     //await AsyncStorage.clear();
@@ -249,6 +246,7 @@ export default class AuthLoadingScreen extends React.Component {
               status: "pending",
               batchId: data.batch.batchId,
               truckDocId: truckResult.id,
+              truckId: truckResult.truckId,
               collectors: data.collectors.map((c)=>c.userId),
             }
           );

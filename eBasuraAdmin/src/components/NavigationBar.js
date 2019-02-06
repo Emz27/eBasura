@@ -43,6 +43,9 @@ export default class NavigationBar extends React.Component {
                 <NavLink className="nav-link" to="/monitor">Monitor</NavLink>
               </NavItem>
               <NavItem>
+                <NavLink className="nav-link" to="/collections">Collections</NavLink>
+              </NavItem>
+              <NavItem>
                 <NavLink className="nav-link" to="/users">Users</NavLink>
               </NavItem>
               <NavItem>
